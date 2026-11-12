@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <script>
+  {
+    const savedScheme = localStorage.getItem("color-scheme");
+    if (savedScheme === "light" || savedScheme === "dark") {
+      document.querySelector('meta[name="color-scheme"]').content = savedScheme;
+      document.documentElement.style.colorScheme = savedScheme;
+      document.documentElement.dataset.theme = savedScheme;
+    }
+  }
+  </script>
+  <title>WritingQuest | Grade 6–12 AI English Writing Tutor</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-cluster">
+      <div class="brand-emblem" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+          <path d="M2 2l7.586 7.586"></path>
+          <circle cx="11" cy="11" r="2"></circle>
+        </svg>
+      </div>
+      <div>
+        <h1 class="app-title">WritingQuest</h1>
+        <p class="app-tagline">Grade 6–12 Socratic English Writing Coach &amp; Rubric Studio</p>
+      </div>
+    </div>
+
+    <nav class="grade-ribbon" aria-label="Grade Level Selector">
+      <span class="ribbon-label">Grade Level:</span>
+      <ul class="grade-pill-list" id="grade-selector-list">
+        <li><button type="button" class="grade-pill" data-grade="6">G6</button></li>
+        <li><button type="button" class="grade-pill" data-grade="7">G7</button></li>
+        <li><button type="button" class="grade-pill" data-grade="8">G8</button></li>
+        <li><button type="button" class="grade-pill" data-grade="9">G9</button></li>
+        <li><button type="button" class="grade-pill" data-grade="10">G10</button></li>
+        <li><button type="button" class="grade-pill" data-grade="11">G11</button></li>
+        <li><button type="button" class="grade-pill" data-grade="12">G12</button></li>
+      </ul>
+    </nav>
+
+    <div class="header-actions">
+      <div class="scholar-badge" id="scholar-rank-badge">
+        <span class="scholar-level" id="scholar-level-text">Lv. 1 Scholar</span>
+        <span class="scholar-xp" id="scholar-xp-text">0 XP</span>
+      </div>
+      <button type="button" class="status-chip" id="api-status-btn" aria-label="Configure Google Gemini API Key">
+        <span class="status-dot" id="api-status-dot" aria-hidden="true"></span>
+        <span id="api-status-label">Gemini API Setup</span>
+      </button>
+      <button type="button" class="icon-btn" id="theme-toggle-btn" aria-label="Switch color theme">
+        <span id="theme-toggle-label">Theme</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="workflow-nav" aria-label="Writing Workflow Stages">
+    <ol class="workflow-steps" id="workflow-tabs">
+      <li>
+        <button type="button" class="workflow-tab active" data-tab="curriculum" aria-current="step">
+          <span class="step-num">1</span>
+          <span>Curriculum &amp; Prompts</span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="workflow-tab" data-tab="outline">
+          <span class="step-num">2</span>
+          <span>Socratic Brainstorm &amp; Outline</span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="workflow-tab" data-tab="editor">
+          <span class="step-num">3</span>
+          <span>Drafting Studio</span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="workflow-tab" data-tab="critique">
+          <span class="step-num">4</span>
+          <span>4D Rubric &amp; Line Critique</span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="workflow-tab" data-tab="portfolio">
+          <span class="step-num">5</span>
+          <span>Growth Vault &amp; Vocabulary</span>
+        </button>
+      </li>
+    </ol>
+  </nav>
+
+  <main class="app-main">
+    <!-- STAGE 1: CURRICULUM & PROMPTS -->
+    <section id="view-curriculum" class="stage-view active" aria-labelledby="curriculum-heading">
+      <div class="grade-banner-card">
+        <div class="grade-banner-main">
+          <span class="stage-badge" id="grade-stage-badge">Middle School • Capstone</span>
+          <h2 id="curriculum-heading">Grade 8: Evidence-Based CER &amp; High School Readiness</h2>
+          <p class="grade-subtitle" id="grade-subtitle-text">Mastering Claim-Evidence-Reasoning (CER), nuanced thesis statements, and formal academic register.</p>
+          <div class="skills-row">
+            <h3 class="skills-heading">Core Grade Standards &amp; Milestones</h3>
+            <ul class="skills-list" id="grade-skills-list"></ul>
+          </div>
+        </div>
+        <dl class="grade-targets-box">
+          <div class="target-metric">
+            <dt>Target Length</dt>
+            <dd id="grade-target-words">400–500 words</dd>
+          </div>
+          <div class="target-metric">
+            <dt>Sentence Cadence</dt>
+            <dd id="grade-target-sentence">15–20 words/sentence</dd>
+          </div>
+          <div class="target-metric">
+            <dt>Active Assignment</dt>
+            <dd id="active-prompt-summary">Select a prompt below</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="toolbar-bar">
+        <search class="prompt-search-box">
+          <label for="prompt-search-input" class="visually-hidden">Search writing prompts</label>
+          <input type="search" id="prompt-search-input" placeholder="Search prompts by topic or skill...">
+          <label for="genre-filter-select" class="visually-hidden">Filter by essay genre</label>
+          <select id="genre-filter-select">
+            <option value="all">All Genres</option>
+            <option value="Argumentative">Argumentative &amp; AP Argument</option>
+            <option value="Literary Analysis">Literary &amp; Rhetorical Analysis</option>
+            <option value="Personal Narrative">Personal Narrative &amp; College Essay</option>
+            <option value="Expository">Expository &amp; Synthesis</option>
+          </select>
+        </search>
+        <button type="button" class="btn secondary" id="open-custom-prompt-btn">+ Create Custom School Prompt</button>
+      </div>
+
+      <div class="prompt-grid" id="prompt-cards-container"></div>
+    </section>
+
+    <!-- STAGE 2: SOCRATIC BRAINSTORM & OUTLINE STUDIO -->
+    <section id="view-outline" class="stage-view" aria-labelledby="outline-heading" hidden>
+      <div class="split-workspace">
+        <aside class="coach-panel" aria-labelledby="socratic-coach-heading">
+          <div class="panel-header">
+            <h2 id="socratic-coach-heading">Socratic AI Brainstorm Coach</h2>
+            <button type="button" class="btn primary small" id="generate-brainstorm-btn">Spark Ideas with AI</button>
+          </div>
+          <p class="coach-intro" id="coach-greeting-text">
+            A great writer never starts with a blank page. Click <strong>Spark Ideas with AI</strong> to receive grade-calibrated Socratic questions, thesis templates, and strategic angles for your active prompt.
+          </p>
+
+          <div class="coach-card">
+            <h3>Probing Questions (Think Before You Write)</h3>
+            <ol class="coach-list" id="socratic-questions-list">
+              <li>What specific real-world observation, historical event, or literary moment anchors your perspective on this prompt?</li>
+              <li>What is the strongest counterargument a skeptical reader might raise against your position?</li>
+              <li>Why does this question matter beyond the classroom?</li>
+            </ol>
+          </div>
+
+          <div class="coach-card">
+            <h3>Grade-Calibrated Thesis Frames</h3>
+            <ul class="coach-list" id="thesis-templates-list">
+              <li><code>Although [opposing view holds appeal], ultimately [your core claim] because [Reason A] and [Reason B].</code></li>
+            </ul>
+          </div>
+
+          <div class="coach-card">
+            <h3>Strategic Essay Angles</h3>
+            <ul class="coach-list" id="suggested-angles-list">
+              <li>Start with a vivid micro-scene before zooming out to your broader analytical thesis.</li>
+            </ul>
+          </div>
+
+          <div class="coach-card" id="outline-ai-feedback-box" hidden>
+            <h3>AI Outline Diagnostic</h3>
+            <p id="outline-verdict-text" class="highlight-verdict"></p>
+            <p id="outline-thesis-feedback"></p>
+            <ul class="coach-list" id="outline-suggestions-list"></ul>
+            <div class="polished-thesis-box">
+              <strong>Model Thesis Refinement:</strong>
+              <p id="outline-polished-thesis"></p>
+            </div>
+          </div>
+        </aside>
+
+        <div class="outline-builder-panel">
+          <div class="panel-header">
+            <div>
+              <h2 id="outline-heading">Architectural Outline Studio</h2>
+              <p class="muted-sub" id="outline-prompt-title">Active Prompt</p>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn secondary" id="review-outline-btn">AI Review My Outline</button>
+              <button type="button" class="btn primary" id="send-outline-to-editor-btn">Proceed to Drafting Studio →</button>
+            </div>
+          </div>
+
+          <form id="outline-form" class="outline-form">
+            <div class="form-field">
+              <label for="outline-hook">1. Opening Hook &amp; Context (How will you draw the reader in?)</label>
+              <textarea id="outline-hook" class="auto-textarea" placeholder="Draft a vivid image, paradoxical question, or historical snapshot..."></textarea>
+            </div>
+
+            <div class="form-field highlight-field">
+              <label for="outline-thesis">2. Working Thesis Statement / Central Claim (Your core argument + line of reasoning)</label>
+              <textarea id="outline-thesis" class="auto-textarea" placeholder="Although..., ultimately [claim] because [mechanistic reason]..."></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="outline-body1">3. Body Paragraph 1: First Pillar (Topic Sentence + Specific Evidence + Analysis)</label>
+              <textarea id="outline-body1" class="auto-textarea" placeholder="Claim 1 + concrete example/quote + how it proves your thesis..."></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="outline-body2">4. Body Paragraph 2: Second Pillar (Topic Sentence + Specific Evidence + Analysis)</label>
+              <textarea id="outline-body2" class="auto-textarea" placeholder="Claim 2 + concrete example/quote + deeper implication..."></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="outline-body3">5. Body Paragraph 3 / Synthesis (Optional Third Point or Deeper Exploration)</label>
+              <textarea id="outline-body3" class="auto-textarea" placeholder="Additional evidence, cross-text connection, or systemic impact..."></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="outline-counter">6. Counterargument, Concession &amp; Turn / Reflective Pivot</label>
+              <textarea id="outline-counter" class="auto-textarea" placeholder="What valid point does the other side have, and how does your reasoning outweigh or refine it?"></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="outline-conclusion">7. Conclusion &amp; "So What?" Takeaway (Why does this matter in the larger picture?)</label>
+              <textarea id="outline-conclusion" class="auto-textarea" placeholder="Synthesize your insights without merely repeating your introduction word-for-word..."></textarea>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- STAGE 3: SMART DRAFTING STUDIO -->
+    <section id="view-editor" class="stage-view" aria-labelledby="editor-heading" hidden>
+      <div class="editor-workspace">
+        <aside class="editor-sidebar" aria-labelledby="assistant-sidebar-heading">
+          <h2 id="assistant-sidebar-heading" class="sidebar-title">Writing Toolkit &amp; Tutor</h2>
+
+          <details class="toolkit-disclosure" open>
+            <summary>Prompt &amp; Grade Checklist</summary>
+            <div class="disclosure-body">
+              <p class="prompt-mini-text" id="editor-prompt-text"></p>
+              <ul class="checklist-items" id="editor-checklist"></ul>
+            </div>
+          </details>
+
+          <details class="toolkit-disclosure" open>
+            <summary>Academic Transition &amp; Phrase Bank (Click to Insert)</summary>
+            <div class="disclosure-body">
+              <div class="chip-cloud" id="phrase-bank-chips"></div>
+            </div>
+          </details>
+
+          <details class="toolkit-disclosure">
+            <summary>Your Saved Outline Reference</summary>
+            <div class="disclosure-body" id="editor-outline-preview">
+              <p class="muted-sub">Any notes you enter in the Outline Studio appear here for easy reference while drafting.</p>
+            </div>
+          </details>
+
+          <div class="tutor-chat-panel">
+            <h3>Ask Your Socratic Writing Coach</h3>
+            <div class="chat-log" id="tutor-chat-log" aria-live="polite">
+              <div class="chat-bubble ai">
+                Stuck on a transition, thesis, or body paragraph? Ask me how to strengthen your reasoning—I’ll guide you step by step without ghostwriting!
+              </div>
+            </div>
+            <form id="tutor-chat-form" class="chat-input-row">
+              <label for="tutor-chat-input" class="visually-hidden">Ask the Socratic Writing Coach</label>
+              <textarea id="tutor-chat-input" class="auto-textarea chat-textarea" placeholder="e.g., How can I make my opening hook stronger?"></textarea>
+              <button type="submit" class="btn primary small" id="tutor-chat-send-btn">Ask</button>
+            </form>
+          </div>
+        </aside>
+
+        <div class="editor-main-column">
+          <div class="editor-top-bar">
+            <div class="editor-title-group">
+              <h2 id="editor-heading" class="visually-hidden">Essay Drafting Editor</h2>
+              <label for="essay-title-input" class="visually-hidden">Essay Title</label>
+              <input type="text" id="essay-title-input" class="essay-title-input" placeholder="Enter Your Essay Title...">
+            </div>
+            <div class="editor-actions">
+              <div class="timer-widget" aria-label="Timed Writing Practice">
+                <span class="timer-display" id="timer-display">25:00</span>
+                <button type="button" class="btn ghost small" id="timer-toggle-btn">Start Timer</button>
+                <button type="button" class="btn ghost small" id="timer-reset-btn">Reset</button>
+              </div>
+              <button type="button" class="btn secondary small" id="load-sample-draft-btn">Load Sample Student Draft</button>
+              <button type="button" class="btn primary" id="evaluate-essay-btn">Evaluate &amp; Coach Essay (AI) ✨</button>
+            </div>
+          </div>
+
+          <div class="telemetry-strip" aria-label="Live Writing Metrics">
+            <div class="telemetry-item">
+              <span class="telemetry-label">Word Count</span>
+              <strong class="telemetry-value" id="metric-words">0 / 450</strong>
+              <progress id="word-progress-bar" value="0" max="450" aria-label="Word count progress toward grade target"></progress>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Paragraphs</span>
+              <strong class="telemetry-value" id="metric-paragraphs">0</strong>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Sentences</span>
+              <strong class="telemetry-value" id="metric-sentences">0</strong>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Avg. Sentence Length</span>
+              <strong class="telemetry-value" id="metric-avg-sentence">0 words</strong>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Academic Transitions</span>
+              <strong class="telemetry-value" id="metric-transitions">0 used</strong>
+            </div>
+          </div>
+
+          <div class="draft-paper-container">
+            <label for="essay-draft-textarea" class="visually-hidden">Essay Draft Body</label>
+            <textarea
+              id="essay-draft-textarea"
+              class="essay-draft-textarea"
+              placeholder="Begin writing your essay here... Use clear paragraphs separated by a blank line. Need to test the AI Rubric right away? Click 'Load Sample Student Draft' above!"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STAGE 4: 4D RUBRIC & LINE-BY-LINE CRITIQUE -->
+    <section id="view-critique" class="stage-view" aria-labelledby="critique-heading" hidden>
+      <div class="critique-header-card">
+        <div class="critique-summary-col">
+          <div class="critique-badge-row">
+            <span class="stage-badge" id="critique-grade-badge">Grade 8 Rubric Assessment</span>
+            <span class="engine-badge" id="critique-engine-badge">Ready</span>
+          </div>
+          <h2 id="critique-heading">Comprehensive Writing Assessment &amp; Line Coach</h2>
+          <p id="critique-executive-summary" class="executive-summary-text">
+            Submit your draft from the Drafting Studio (or click "Run AI Evaluation Now" below) to receive a 4-Dimension Grade-Calibrated Rubric score, interactive sentence-by-sentence revisions, and tailored vocabulary upgrades.
+          </p>
+          <div class="mission-callout" id="critique-mission-box">
+            <strong>Next Revision Mission:</strong>
+            <span id="critique-mission-text">Run an evaluation on your current draft to unlock your personalized revision mission.</span>
+          </div>
+        </div>
+
+        <div class="score-dial-box">
+          <div class="score-circle">
+            <span class="score-letter" id="critique-letter-grade">—</span>
+            <span class="score-numeric" id="critique-total-score">0 / 40</span>
+          </div>
+          <button type="button" class="btn primary" id="re-evaluate-btn">Run AI Evaluation Now</button>
+        </div>
+      </div>
+
+      <div class="critique-columns">
+        <!-- 4D Rubric Accordion -->
+        <div class="rubric-column">
+          <h3>4-Dimension Rubric Breakdown</h3>
+          <p class="muted-sub">Click each dimension to inspect specific strengths, growth areas, and next-step actions.</p>
+          <div id="rubric-accordions-container" class="rubric-accordion-group">
+            <details name="rubric-accordion" class="rubric-details" open>
+              <summary>
+                <span>Thesis, Ideas &amp; Content</span>
+                <strong class="dim-score-pill">— / 10</strong>
+              </summary>
+              <div class="rubric-details-body">
+                <p>Evaluate a draft in the Drafting Studio to populate detailed rubric commentary.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Sentence-by-Sentence Inline Revision Coach -->
+        <div class="line-edits-column">
+          <h3>Sentence-by-Sentence Revision Coach</h3>
+          <p class="muted-sub">Apply revisions directly to your draft or save them to your Error &amp; Revision Notebook.</p>
+          <div id="line-edits-container" class="line-edits-list">
+            <div class="empty-state-box">
+              No sentence critiques yet. Click <strong>Evaluate &amp; Coach Essay</strong> in the Drafting Studio to analyze your sentences!
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vocabulary Power-Ups -->
+      <div class="vocab-powerup-section">
+        <div class="section-title-row">
+          <div>
+            <h3>Grade-Calibrated Vocabulary Power-Ups</h3>
+            <p class="muted-sub">Elevate general words into precise academic and literary diction. Save words to your personal Vocabulary Vault to practice later.</p>
+          </div>
+        </div>
+        <div class="vocab-cards-grid" id="critique-vocab-grid"></div>
+      </div>
+    </section>
+
+    <!-- STAGE 5: GROWTH PORTFOLIO, VOCABULARY VAULT & REVISION NOTEBOOK -->
+    <section id="view-portfolio" class="stage-view" aria-labelledby="portfolio-heading" hidden>
+      <div class="portfolio-top-grid">
+        <div class="portfolio-stat-card">
+          <h2 id="portfolio-heading">Scholar Growth Portfolio</h2>
+          <p class="muted-sub">Longitudinal tracking from Grade 6 foundations through Grade 12 mastery.</p>
+          <dl class="portfolio-metrics">
+            <div>
+              <dt>Essays Evaluated</dt>
+              <dd id="stat-essays-count">0</dd>
+            </div>
+            <div>
+              <dt>Average Score</dt>
+              <dd id="stat-avg-score">— / 40</dd>
+            </div>
+            <div>
+              <dt>Total Words Written</dt>
+              <dd id="stat-total-words">0</dd>
+            </div>
+            <div>
+              <dt>Vocabulary Saved</dt>
+              <dd id="stat-vocab-count">0 words</dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Interactive Vocabulary Flashcard / Quiz Trainer -->
+        <div class="vocab-trainer-card">
+          <div class="panel-header">
+            <h3>Interactive Vocabulary Mastery Quiz</h3>
+            <button type="button" class="btn secondary small" id="next-quiz-word-btn">Next Challenge Word</button>
+          </div>
+          <div id="vocab-quiz-container" class="vocab-quiz-box">
+            <p class="quiz-definition" id="quiz-prompt-text">Select the academic word that matches this definition:</p>
+            <div class="quiz-options" id="quiz-options-container"></div>
+            <p class="quiz-feedback" id="quiz-feedback-text" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="portfolio-columns">
+        <!-- Personal Vocabulary Vault -->
+        <div class="vault-column">
+          <div class="panel-header">
+            <h3>Personal Vocabulary Vault</h3>
+            <button type="button" class="btn ghost small" id="seed-grade-vocab-btn">+ Add Current Grade Core Words</button>
+          </div>
+          <div class="vault-list" id="vocab-vault-list"></div>
+        </div>
+
+        <!-- Revision & Grammar Notebook + Essay History -->
+        <div class="vault-column">
+          <h3>Saved Sentence Revisions &amp; Error Patterns</h3>
+          <div class="vault-list" id="revision-notebook-list"></div>
+
+          <h3 class="mt-heading">Evaluated Essay History</h3>
+          <div class="vault-list" id="essay-history-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL 1: GOOGLE GEMINI API & PROFILE SETTINGS (Light-Dismiss Native Dialog) -->
+  <dialog id="settings-dialog" closedby="any" aria-labelledby="settings-dialog-title">
+    <form method="dialog" id="settings-form" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="settings-dialog-title">Google Gemini API &amp; Tutor Settings</h2>
+        <button type="button" class="icon-btn" id="close-settings-btn" aria-label="Close settings dialog">✕</button>
+      </div>
+
+      <p class="dialog-description">
+        WritingQuest connects directly to the <strong>Google Gemini API</strong> for real-time Socratic coaching, outline diagnostics, and 4D rubric grading. Your API key is stored locally in your workspace <code>.env</code> and browser storage.
+      </p>
+
+      <div class="form-field">
+        <label for="gemini-api-key-input">Google Gemini API Key</label>
+        <input
+          type="password"
+          id="gemini-api-key-input"
+          placeholder="AIzaSy..."
+          autocomplete="off"
+        >
+        <small class="field-hint" id="server-key-hint">
+          Get a key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. Leave blank to keep existing server key or use Built-in Heuristic Coach.
+        </small>
+      </div>
+
+      <div class="form-field">
+        <label for="gemini-model-select">Gemini Model</label>
+        <select id="gemini-model-select">
+          <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended: Fast &amp; Responsive Tutoring)</option>
+          <option value="gemini-3.8-pro">gemini-3.8-pro (Deep Rhetorical &amp; AP/College Essay Analysis)</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label for="student-name-input">Student Name (Optional)</label>
+        <input type="text" id="student-name-input" placeholder="e.g., Alex" autocomplete="given-name">
+      </div>
+
+      <div class="dialog-footer">
+        <button type="button" class="btn secondary" id="cancel-settings-btn">Cancel</button>
+        <button type="submit" class="btn primary" id="save-settings-btn">Save Configuration</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL 2: CREATE CUSTOM SCHOOL PROMPT -->
+  <dialog id="custom-prompt-dialog" closedby="any" aria-labelledby="custom-prompt-dialog-title">
+    <form method="dialog" id="custom-prompt-form" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="custom-prompt-dialog-title">Add Custom School Writing Assignment</h2>
+        <button type="button" class="icon-btn" id="close-custom-prompt-btn" aria-label="Close custom prompt dialog">✕</button>
+      </div>
+
+      <p class="dialog-description">
+        Paste any essay prompt from your English teacher, AP classroom, or college application to get full Socratic coaching and rubric evaluation calibrated for your current grade.
+      </p>
+
+      <div class="form-field">
+        <label for="custom-prompt-title">Assignment Title</label>
+        <input type="text" id="custom-prompt-title" required placeholder="e.g., Macbeth Ambition Analytical Essay">
+      </div>
+
+      <div class="form-field">
+        <label for="custom-prompt-genre">Essay Genre</label>
+        <select id="custom-prompt-genre">
+          <option value="Argumentative">Argumentative Essay</option>
+          <option value="Literary Analysis">Literary Analysis</option>
+          <option value="Rhetorical Analysis">Rhetorical Analysis</option>
+          <option value="Personal Narrative">Personal Narrative / College Essay</option>
+          <option value="Expository">Expository / Research Essay</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label for="custom-prompt-instructions">Full Prompt Instructions / Question</label>
+        <textarea id="custom-prompt-instructions" class="auto-textarea" required placeholder="Paste the full essay prompt, rubric requirements, or guiding question from class..."></textarea>
+      </div>
+
+      <div class="dialog-footer">
+        <button type="button" class="btn secondary" id="cancel-custom-prompt-btn">Cancel</button>
+        <button type="submit" class="btn primary">Start Coaching on This Prompt</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast-banner" class="toast-banner" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

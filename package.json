@@ -1,0 +1,13 @@
+{
+  "name": "writing-quest",
+  "version": "1.0.0",
+  "description": "Grade 6-12 AI English Writing Tutor Web Application powered by Google Gemini",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
