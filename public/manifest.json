@@ -1,0 +1,18 @@
+{
+  "name": "WritingQuest — Grade 6–12 AI English Writing Tutor",
+  "short_name": "WritingQuest",
+  "description": "Grade 6–12 Socratic English Writing Coach, Outline Studio & 4D Rubric Assessment",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f7fb",
+  "theme_color": "#254edb",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

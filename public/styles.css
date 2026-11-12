@@ -179,8 +179,10 @@
   .app-header {
     background-color: var(--bg-surface);
     border-block-end: 1px solid var(--border-subtle);
-    padding-block: 0.85rem;
-    padding-inline: 1.5rem;
+    padding-block-start: calc(0.85rem + env(safe-area-inset-top, 0px));
+    padding-block-end: 0.85rem;
+    padding-inline-start: calc(1.5rem + env(safe-area-inset-left, 0px));
+    padding-inline-end: calc(1.5rem + env(safe-area-inset-right, 0px));
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -226,6 +228,9 @@
     padding: 0.35rem 0.65rem;
     border-radius: 999px;
     border: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
   }
 
   .ribbon-label {
@@ -316,8 +321,11 @@
   .workflow-nav {
     background-color: var(--bg-surface);
     border-block-end: 1px solid var(--border-subtle);
-    padding-inline: 1.5rem;
+    padding-inline-start: calc(1.5rem + env(safe-area-inset-left, 0px));
+    padding-inline-end: calc(1.5rem + env(safe-area-inset-right, 0px));
     overflow-x: auto;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
   }
 
   .workflow-steps {
@@ -331,6 +339,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    min-block-size: 2.75rem;
     padding: 0.8rem 1rem;
     border: none;
     border-block-end: 3px solid transparent;
@@ -372,7 +381,10 @@
     inline-size: 100%;
     max-inline-size: 88rem;
     margin-inline: auto;
-    padding: 1.5rem;
+    padding-block-start: 1.5rem;
+    padding-block-end: calc(2rem + env(safe-area-inset-bottom, 0px));
+    padding-inline-start: calc(1.5rem + env(safe-area-inset-left, 0px));
+    padding-inline-end: calc(1.5rem + env(safe-area-inset-right, 0px));
   }
 
   .stage-view[hidden] {
@@ -1348,8 +1360,8 @@
 
   .toast-banner {
     position: fixed;
-    inset-block-end: 1.25rem;
-    inset-inline-end: 1.25rem;
+    inset-block-end: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    inset-inline-end: calc(1.25rem + env(safe-area-inset-right, 0px));
     background-color: var(--brand-primary);
     color: var(--brand-primary-text);
     padding: 0.75rem 1.15rem;
@@ -1357,6 +1369,72 @@
     font-size: 0.88rem;
     font-weight: 600;
     z-index: 50;
+  }
+
+  /* Apple iPad Touch & Viewport Adaptations */
+  @media (pointer: coarse) {
+    .btn,
+    .btn.small,
+    .icon-btn,
+    .status-chip,
+    .grade-pill {
+      min-block-size: 2.75rem;
+      min-inline-size: 2.75rem;
+    }
+
+    .phrase-chip {
+      min-block-size: 2.35rem;
+      padding-inline: 0.85rem;
+      padding-block: 0.4rem;
+      font-size: 0.86rem;
+    }
+
+    .toolkit-disclosure summary,
+    .rubric-details summary,
+    .model-excerpt-details summary {
+      min-block-size: 2.5rem;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Prevent iPadOS Safari auto-zoom on input focus by ensuring >= 16px (1rem) font size */
+    input[type="text"],
+    input[type="search"],
+    input[type="password"],
+    select,
+    textarea,
+    .chat-textarea {
+      font-size: 1rem;
+    }
+  }
+
+  /* iPad Landscape (1024px - 1366px) balanced split-screen columns */
+  @media (min-width: 981px) and (max-width: 1280px) {
+    .split-workspace {
+      grid-template-columns: 21rem 1fr;
+      gap: 1.15rem;
+    }
+
+    .editor-workspace {
+      grid-template-columns: 19.5rem 1fr;
+      gap: 1.15rem;
+    }
+  }
+
+  /* iPad Portrait (768px - 980px) ergonomic two-column cards & comfortable reading width */
+  @media (min-width: 740px) and (max-width: 980px) {
+    .app-header {
+      padding-inline: 1.15rem;
+    }
+
+    .prompt-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .essay-draft-textarea {
+      min-block-size: 16lh;
+      font-size: 1.12rem;
+    }
   }
 }
 
