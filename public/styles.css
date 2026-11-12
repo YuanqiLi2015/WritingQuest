@@ -594,18 +594,24 @@
 
   .prompt-card {
     background-color: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+    border: 2px solid var(--border-subtle);
     border-radius: 0.85rem;
     padding: 1.35rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     gap: 1rem;
-    transition: border-color 0.15s ease;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .prompt-card:hover {
+    border-color: var(--brand-primary);
   }
 
   .prompt-card.selected {
-    border: 2px solid var(--brand-primary);
+    border-color: var(--brand-primary);
+    background-color: var(--brand-soft);
   }
 
   .prompt-card-meta {
@@ -613,6 +619,28 @@
     justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
+  }
+
+  .prompt-meta-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .select-status-pill {
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-subtle);
+    color: var(--text-muted);
+  }
+
+  .prompt-card.selected .select-status-pill {
+    background-color: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: var(--brand-primary-text);
   }
 
   .genre-pill {

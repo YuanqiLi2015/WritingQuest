@@ -271,14 +271,21 @@ function renderPromptCards() {
   }
 
   prompts.forEach(prompt => {
+    const isSelected = prompt.id === state.selectedPromptId;
     const card = document.createElement('article');
-    card.className = `prompt-card${prompt.id === state.selectedPromptId ? ' selected' : ''}`;
+    card.className = `prompt-card${isSelected ? ' selected' : ''}`;
+    card.dataset.promptId = prompt.id;
+    card.tabIndex = 0;
+    card.setAttribute('aria-current', isSelected ? 'true' : 'false');
 
     const topDiv = document.createElement('div');
     topDiv.innerHTML = `
       <div class="prompt-card-meta">
         <span class="genre-pill">${escapeHtml(prompt.genre)}</span>
-        <span class="difficulty-pill">Grade ${state.currentGrade} • ${escapeHtml(prompt.difficulty || 'Core')}</span>
+        <div class="prompt-meta-right">
+          <span class="difficulty-pill">Grade ${state.currentGrade} • ${escapeHtml(prompt.difficulty || 'Core')}</span>
+          <span class="select-status-pill">${isSelected ? '✓ Selected' : 'Select'}</span>
+        </div>
       </div>
       <h3>${escapeHtml(prompt.title)}</h3>
       <p class="prompt-card-desc">${escapeHtml(prompt.promptText)}</p>
@@ -302,7 +309,8 @@ function renderPromptCards() {
     outlineBtn.type = 'button';
     outlineBtn.className = 'btn secondary small';
     outlineBtn.textContent = '1. Brainstorm & Outline';
-    outlineBtn.addEventListener('click', () => {
+    outlineBtn.addEventListener('click', e => {
+      e.stopPropagation();
       selectPrompt(prompt.id);
       switchTab('outline');
     });
@@ -311,7 +319,8 @@ function renderPromptCards() {
     writeBtn.type = 'button';
     writeBtn.className = 'btn primary small';
     writeBtn.textContent = '2. Open Drafting Studio →';
-    writeBtn.addEventListener('click', () => {
+    writeBtn.addEventListener('click', e => {
+      e.stopPropagation();
       selectPrompt(prompt.id);
       switchTab('editor');
     });
@@ -319,15 +328,47 @@ function renderPromptCards() {
     actions.append(outlineBtn, writeBtn);
     bottomDiv.appendChild(actions);
 
+    card.addEventListener('click', () => {
+      if (state.selectedPromptId !== prompt.id) {
+        selectPrompt(prompt.id, { notify: true });
+      }
+    });
+
+    card.addEventListener('keydown', e => {
+      if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        selectPrompt(prompt.id, { notify: true });
+      }
+    });
+
     card.append(topDiv, bottomDiv);
     container.appendChild(card);
   });
 }
 
-function selectPrompt(promptId) {
+function selectPrompt(promptId, { notify = false } = {}) {
   state.selectedPromptId = promptId;
   saveState();
-  renderCurriculumView();
+
+  const activePrompt = getActivePrompt();
+  const summaryEl = document.getElementById('active-prompt-summary');
+  if (summaryEl) {
+    summaryEl.textContent = activePrompt.title;
+  }
+
+  document.querySelectorAll('.prompt-card').forEach(card => {
+    const isSel = card.dataset.promptId === promptId;
+    card.classList.toggle('selected', isSel);
+    card.setAttribute('aria-current', isSel ? 'true' : 'false');
+    const pill = card.querySelector('.select-status-pill');
+    if (pill) {
+      pill.textContent = isSel ? '✓ Selected' : 'Select';
+    }
+  });
+
+  if (notify) {
+    showToast(`Selected topic: "${activePrompt.title}"`);
+  }
 }
 
 // STAGE 2: Socratic Brainstorm & Outline Studio
