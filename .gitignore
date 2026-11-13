@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.sync-store.json
 
 # Dependencies & OS files
 node_modules/

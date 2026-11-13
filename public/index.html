@@ -59,6 +59,10 @@
         <span class="scholar-level" id="scholar-level-text">Lv. 1 Scholar</span>
         <span class="scholar-xp" id="scholar-xp-text">0 XP</span>
       </div>
+      <button type="button" class="status-chip" id="cloud-sync-btn" aria-label="Multi-Device Cloud Sync">
+        <span class="sync-dot" id="cloud-sync-dot" aria-hidden="true"></span>
+        <span id="cloud-sync-label">☁️ Cloud Sync</span>
+      </button>
       <button type="button" class="status-chip" id="api-status-btn" aria-label="Configure Google Gemini API Key">
         <span class="status-dot" id="api-status-dot" aria-hidden="true"></span>
         <span id="api-status-label">Gemini API Setup</span>
@@ -585,6 +589,75 @@
         <button type="submit" class="btn primary">Start Coaching on This Prompt</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- MODAL 3: MULTI-DEVICE CLOUD SYNC -->
+  <dialog id="cloud-sync-dialog" closedby="any" aria-labelledby="cloud-sync-title">
+    <div class="dialog-header">
+      <h2 id="cloud-sync-title">☁️ Multi-Device Cloud Sync</h2>
+      <button type="button" class="icon-btn" id="close-cloud-sync-btn" aria-label="Close cloud sync dialog">✕</button>
+    </div>
+
+    <p class="dialog-description">
+      Keep your essay drafts, outlines, vocabulary vault, and revision notes in continuous sync across <strong>Mac</strong>, <strong>iPad</strong>, and <strong>iPhone</strong> using a private Family Sync Code.
+    </p>
+
+    <div class="sync-status-card" id="sync-status-card">
+      <div class="panel-header">
+        <div>
+          <span class="status-dot" id="modal-sync-dot"></span>
+          <strong id="modal-sync-status-title">Local Storage Only</strong>
+        </div>
+        <span class="muted-sub" id="modal-sync-time">Not connected</span>
+      </div>
+      <p class="muted-sub" id="modal-sync-detail">
+        Enter a sync code below to enable automatic continuous cloud sync.
+      </p>
+    </div>
+
+    <form id="cloud-sync-form" class="dialog-form">
+      <div class="form-field">
+        <label for="sync-code-input">Family Sync Code (4–24 letters or numbers)</label>
+        <div class="sync-input-row">
+          <input
+            type="text"
+            id="sync-code-input"
+            placeholder="e.g. ALEX-2026"
+            autocapitalize="characters"
+            spellcheck="false"
+            autocomplete="off"
+            required
+            minlength="4"
+            maxlength="24"
+          >
+          <button type="button" class="btn secondary small" id="generate-sync-code-btn">Generate Random</button>
+        </div>
+        <small class="field-hint">Use this exact same code on your Mac, iPad, and iPhone to keep them in sync.</small>
+      </div>
+
+      <div class="sync-actions-row">
+        <button type="submit" class="btn primary" id="connect-sync-btn">Connect &amp; Sync Now</button>
+        <button type="button" class="btn secondary" id="manual-push-btn" disabled>Push to Cloud</button>
+        <button type="button" class="btn secondary" id="manual-pull-btn" disabled>Pull from Cloud</button>
+        <button type="button" class="btn ghost" id="disconnect-sync-btn" disabled>Disconnect</button>
+      </div>
+    </form>
+
+    <details class="toolkit-disclosure mt-heading">
+      <summary>ℹ️ Vercel KV Setup (For Remote Access on iPad/iPhone)</summary>
+      <div class="disclosure-body">
+        <ol class="coach-list">
+          <li>Log in to your project at <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Vercel Dashboard</a>.</li>
+          <li>Click the <strong>Storage</strong> tab &rarr; click <strong>Create Database</strong> &rarr; select <strong>KV</strong> (powered by Upstash).</li>
+          <li>Click <strong>Connect to Project</strong> &rarr; choose <strong>WritingQuest</strong>.</li>
+          <li>Done! Vercel automatically creates the credentials. All your devices with this sync code will sync seamlessly!</li>
+        </ol>
+      </div>
+    </details>
+
+    <div class="dialog-footer">
+      <button type="button" class="btn secondary" id="close-sync-footer-btn">Close</button>
+    </div>
   </dialog>
 
   <div id="toast-banner" class="toast-banner" role="status" aria-live="polite" hidden></div>

@@ -466,9 +466,74 @@ function buildLocalEssayEvaluation({ grade, promptTitle, genre, essayTitle, essa
   };
 }
 
+const SYNC_STORE_PATH = path.join(__dirname, '.sync-store.json');
+
+async function loadSyncStore() {
+  try {
+    const raw = await fs.readFile(SYNC_STORE_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function saveSyncStore(store) {
+  try {
+    await fs.writeFile(SYNC_STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to save sync store:', err);
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+    // API: Cloud Sync Storage
+    if (url.pathname === '/api/sync' && req.method === 'GET') {
+      const rawCode = url.searchParams.get('syncCode') || '';
+      const syncCode = rawCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+      if (!syncCode || syncCode.length < 4) {
+        return sendJson(res, 400, { ok: false, error: 'Invalid sync code. Must be at least 4 characters.' });
+      }
+      const store = await loadSyncStore();
+      const record = store[syncCode];
+      if (!record) {
+        return sendJson(res, 200, { ok: true, isConfigured: true, found: false, syncCode });
+      }
+      return sendJson(res, 200, {
+        ok: true,
+        isConfigured: true,
+        found: true,
+        syncCode,
+        payload: record.payload,
+        updatedAt: record.updatedAt || Date.now()
+      });
+    }
+
+    if (url.pathname === '/api/sync' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const syncCode = (body.syncCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+      if (!syncCode || syncCode.length < 4) {
+        return sendJson(res, 400, { ok: false, error: 'Invalid sync code. Must be at least 4 characters.' });
+      }
+      if (!body.payload) {
+        return sendJson(res, 400, { ok: false, error: 'Missing sync payload.' });
+      }
+      const store = await loadSyncStore();
+      store[syncCode] = {
+        syncCode,
+        updatedAt: body.updatedAt || Date.now(),
+        payload: body.payload
+      };
+      await saveSyncStore(store);
+      return sendJson(res, 200, {
+        ok: true,
+        isConfigured: true,
+        syncCode,
+        updatedAt: store[syncCode].updatedAt
+      });
+    }
 
     // API: Get or update Gemini configuration
     if (url.pathname === '/api/config' && req.method === 'GET') {

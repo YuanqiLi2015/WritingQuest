@@ -317,6 +317,59 @@
     background-color: var(--accent-emerald);
   }
 
+  .sync-dot {
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background-color: var(--text-muted);
+    transition: background-color 0.2s ease;
+  }
+
+  .sync-dot.connected {
+    background-color: var(--accent-emerald);
+  }
+
+  .sync-dot.syncing {
+    background-color: var(--brand-primary);
+    animation: pulse-sync 0.8s infinite alternate;
+  }
+
+  @keyframes pulse-sync {
+    from { opacity: 0.3; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1.2); }
+  }
+
+  .sync-status-card {
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    padding: 0.85rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-block: 0.5rem 0.85rem;
+  }
+
+  .sync-input-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .sync-input-row input {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .sync-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-block-start: 0.35rem;
+  }
+
   /* Workflow Stage Navigation */
   .workflow-nav {
     background-color: var(--bg-surface);

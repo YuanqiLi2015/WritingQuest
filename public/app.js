@@ -49,7 +49,11 @@ const state = {
   studentName: '',
   timerSeconds: 25 * 60,
   timerInterval: null,
-  currentQuizWord: null
+  currentQuizWord: null,
+  syncCode: '',
+  lastSyncedAt: 0,
+  isSyncing: false,
+  autoSyncTimer: null
 };
 
 const ALLOWED_MODELS = new Set(['gemini-3.8-flash', 'gemini-3.8-pro']);
@@ -81,6 +85,8 @@ function loadState() {
     if (typeof saved.apiKey === 'string') state.apiKey = saved.apiKey;
     state.model = normalizeModel(saved.model);
     if (typeof saved.studentName === 'string') state.studentName = saved.studentName;
+    if (typeof saved.syncCode === 'string') state.syncCode = saved.syncCode;
+    if (typeof saved.lastSyncedAt === 'number') state.lastSyncedAt = saved.lastSyncedAt;
   } catch {
     // Ignore corrupted storage
   }
@@ -101,7 +107,9 @@ function saveState() {
       essayHistory: state.essayHistory,
       apiKey: state.apiKey,
       model: state.model,
-      studentName: state.studentName
+      studentName: state.studentName,
+      syncCode: state.syncCode,
+      lastSyncedAt: state.lastSyncedAt
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
   } catch {
@@ -124,6 +132,7 @@ function awardXp(amount, reason) {
   state.xp += amount;
   saveState();
   renderScholarRank();
+  triggerAutoSync();
   if (reason) {
     showToast(`+${amount} XP — ${reason}`);
   }
@@ -408,6 +417,7 @@ function collectCurrentOutline() {
   };
   state.outlinesByPrompt[prompt.id] = data;
   saveState();
+  triggerAutoSync();
   return data;
 }
 
@@ -748,6 +758,7 @@ function persistCurrentDraft() {
     body: document.getElementById('essay-draft-textarea').value
   };
   saveState();
+  triggerAutoSync();
 }
 
 function updateLiveTelemetry() {
@@ -1252,6 +1263,259 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ==========================================
+// MULTI-DEVICE CLOUD SYNC ENGINE (Solution B)
+// ==========================================
+
+function getSyncPayload() {
+  return {
+    version: 1,
+    studentName: state.studentName,
+    currentGrade: state.currentGrade,
+    selectedPromptId: state.selectedPromptId,
+    customPrompts: state.customPrompts,
+    outlinesByPrompt: state.outlinesByPrompt,
+    draftsByPrompt: state.draftsByPrompt,
+    lastEvaluation: state.lastEvaluation,
+    xp: state.xp,
+    vocabVault: state.vocabVault,
+    revisionNotebook: state.revisionNotebook,
+    essayHistory: state.essayHistory,
+    model: state.model
+  };
+}
+
+function applySyncPayload(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+
+  if (typeof payload.studentName === 'string') {
+    state.studentName = payload.studentName;
+  }
+  if (payload.currentGrade && GRADE_CURRICULUM[payload.currentGrade]) {
+    state.currentGrade = Number(payload.currentGrade);
+  }
+  if (payload.selectedPromptId) {
+    state.selectedPromptId = payload.selectedPromptId;
+  }
+  if (Array.isArray(payload.customPrompts)) {
+    state.customPrompts = payload.customPrompts;
+  }
+  if (payload.outlinesByPrompt && typeof payload.outlinesByPrompt === 'object') {
+    state.outlinesByPrompt = { ...state.outlinesByPrompt, ...payload.outlinesByPrompt };
+  }
+  if (payload.draftsByPrompt && typeof payload.draftsByPrompt === 'object') {
+    state.draftsByPrompt = { ...state.draftsByPrompt, ...payload.draftsByPrompt };
+  }
+  if (payload.lastEvaluation) {
+    state.lastEvaluation = payload.lastEvaluation;
+  }
+  if (typeof payload.xp === 'number') {
+    state.xp = Math.max(state.xp, payload.xp);
+  }
+  if (Array.isArray(payload.vocabVault)) {
+    const map = new Map();
+    state.vocabVault.forEach(item => {
+      if (item && item.word) map.set(item.word.toLowerCase(), item);
+    });
+    payload.vocabVault.forEach(item => {
+      if (item && item.word) map.set(item.word.toLowerCase(), item);
+    });
+    state.vocabVault = Array.from(map.values());
+  }
+  if (Array.isArray(payload.revisionNotebook)) {
+    const set = new Set(state.revisionNotebook.map(r => `${r.date}_${r.weakness}`));
+    payload.revisionNotebook.forEach(item => {
+      const key = `${item.date}_${item.weakness}`;
+      if (!set.has(key)) {
+        state.revisionNotebook.push(item);
+        set.add(key);
+      }
+    });
+  }
+  if (Array.isArray(payload.essayHistory)) {
+    const existingIds = new Set(state.essayHistory.map(h => h.id));
+    payload.essayHistory.forEach(item => {
+      if (item && item.id && !existingIds.has(item.id)) {
+        state.essayHistory.push(item);
+        existingIds.add(item.id);
+      }
+    });
+    state.essayHistory.sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+  }
+  if (payload.model) {
+    state.model = normalizeModel(payload.model);
+  }
+
+  saveState();
+  renderScholarRank();
+  renderCurriculumView();
+  switchTab(state.activeTab || 'curriculum');
+  return true;
+}
+
+function formatTimeAgo(ts) {
+  if (!ts) return 'Never';
+  const diffSec = Math.floor((Date.now() - ts) / 1000);
+  if (diffSec < 10) return 'Just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+function updateSyncUI() {
+  const dot = document.getElementById('cloud-sync-dot');
+  const label = document.getElementById('cloud-sync-label');
+  const modalChip = document.getElementById('modal-sync-chip');
+  const modalDetail = document.getElementById('modal-sync-detail');
+  const codeInput = document.getElementById('sync-code-input');
+  const pushBtn = document.getElementById('manual-push-btn');
+  const pullBtn = document.getElementById('manual-pull-btn');
+  const disconnectBtn = document.getElementById('disconnect-sync-btn');
+  const connectBtn = document.getElementById('connect-sync-btn');
+
+  const hasCode = Boolean(state.syncCode);
+
+  if (dot) {
+    dot.classList.toggle('connected', hasCode);
+    dot.classList.toggle('syncing', state.isSyncing);
+  }
+  if (label) {
+    if (state.isSyncing) {
+      label.textContent = 'Syncing...';
+    } else if (hasCode) {
+      label.textContent = `Sync: ${state.syncCode}`;
+    } else {
+      label.textContent = '☁️ Cloud Sync';
+    }
+  }
+
+  if (modalChip) {
+    if (hasCode) {
+      modalChip.className = 'status-chip success';
+      modalChip.textContent = `✓ Connected: ${state.syncCode}`;
+    } else {
+      modalChip.className = 'status-chip';
+      modalChip.textContent = '○ Not Connected';
+    }
+  }
+
+  if (modalDetail) {
+    if (hasCode) {
+      modalDetail.textContent = `Continuous sync active. Last synced: ${formatTimeAgo(state.lastSyncedAt)}. Use code "${state.syncCode}" across your Mac, iPad, and iPhone.`;
+    } else {
+      modalDetail.textContent = 'Enter a sync code below to enable automatic continuous cloud sync across your devices.';
+    }
+  }
+
+  if (codeInput && !codeInput.matches(':focus')) {
+    codeInput.value = state.syncCode || '';
+  }
+
+  if (pushBtn) pushBtn.disabled = !hasCode || state.isSyncing;
+  if (pullBtn) pullBtn.disabled = !hasCode || state.isSyncing;
+  if (disconnectBtn) disconnectBtn.disabled = !hasCode || state.isSyncing;
+  if (connectBtn) {
+    connectBtn.disabled = state.isSyncing;
+    connectBtn.textContent = hasCode ? 'Update Sync Code' : 'Connect & Sync Now';
+  }
+}
+
+async function pushToCloud({ silent = false } = {}) {
+  if (!state.syncCode) return;
+  state.isSyncing = true;
+  updateSyncUI();
+
+  try {
+    const payload = getSyncPayload();
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        syncCode: state.syncCode,
+        updatedAt: Date.now(),
+        payload
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      state.lastSyncedAt = data.updatedAt || Date.now();
+      saveState();
+      if (!silent) {
+        showToast(`☁️ Cloud saved! (${state.syncCode})`);
+      }
+    } else if (data.isConfigured === false) {
+      if (!silent) {
+        showToast('ℹ️ Notice: Vercel KV storage is not connected yet in your Vercel project.');
+      }
+    } else {
+      if (!silent) {
+        showToast(`Sync notice: ${data.error || 'Failed to save to cloud'}`);
+      }
+    }
+  } catch (err) {
+    if (!silent) {
+      showToast(`Cloud Sync offline: ${err.message}`);
+    }
+  } finally {
+    state.isSyncing = false;
+    updateSyncUI();
+  }
+}
+
+async function pullFromCloud({ silent = false } = {}) {
+  if (!state.syncCode) return;
+  state.isSyncing = true;
+  updateSyncUI();
+
+  try {
+    const res = await fetch(`/api/sync?syncCode=${encodeURIComponent(state.syncCode)}`);
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      if (data.found && data.payload) {
+        applySyncPayload(data.payload);
+        state.lastSyncedAt = data.updatedAt || Date.now();
+        saveState();
+        if (!silent) {
+          showToast(`☁️ Restored latest progress for ${state.syncCode}!`);
+        }
+      } else {
+        // No record in cloud yet: push current device data as the initial cloud baseline
+        await pushToCloud({ silent: true });
+        if (!silent) {
+          showToast(`Initialized new cloud sync space for ${state.syncCode}!`);
+        }
+      }
+    } else if (data.isConfigured === false) {
+      if (!silent) {
+        showToast('ℹ️ Notice: Vercel KV storage is not connected yet in your Vercel project.');
+      }
+    } else {
+      if (!silent) {
+        showToast(`Sync error: ${data.error || 'Failed to fetch from cloud'}`);
+      }
+    }
+  } catch (err) {
+    if (!silent) {
+      showToast(`Cloud Sync offline: ${err.message}`);
+    }
+  } finally {
+    state.isSyncing = false;
+    updateSyncUI();
+  }
+}
+
+function triggerAutoSync(delayMs = 2500) {
+  if (!state.syncCode) return;
+  clearTimeout(state.autoSyncTimer);
+  state.autoSyncTimer = setTimeout(() => {
+    pushToCloud({ silent: true }).catch(() => {});
+  }, delayMs);
+}
+
 // Initialize all event listeners
 function initApp() {
   loadState();
@@ -1507,6 +1771,84 @@ function initApp() {
     switchTab('outline');
     showToast(`Created custom Grade ${state.currentGrade} prompt: "${title}"`);
   });
+
+  // Multi-Device Cloud Sync Dialog Event Handlers
+  const cloudSyncDialog = document.getElementById('cloud-sync-dialog');
+  const cloudSyncBtn = document.getElementById('cloud-sync-btn');
+  const closeCloudSyncBtn = document.getElementById('close-cloud-sync-btn');
+  const closeSyncFooterBtn = document.getElementById('close-sync-footer-btn');
+  const cloudSyncForm = document.getElementById('cloud-sync-form');
+  const syncCodeInput = document.getElementById('sync-code-input');
+  const generateSyncCodeBtn = document.getElementById('generate-sync-code-btn');
+  const manualPushBtn = document.getElementById('manual-push-btn');
+  const manualPullBtn = document.getElementById('manual-pull-btn');
+  const disconnectSyncBtn = document.getElementById('disconnect-sync-btn');
+
+  if (cloudSyncBtn && cloudSyncDialog) {
+    cloudSyncBtn.addEventListener('click', () => {
+      updateSyncUI();
+      cloudSyncDialog.showModal();
+    });
+  }
+
+  if (closeCloudSyncBtn && cloudSyncDialog) {
+    closeCloudSyncBtn.addEventListener('click', () => cloudSyncDialog.close());
+  }
+
+  if (closeSyncFooterBtn && cloudSyncDialog) {
+    closeSyncFooterBtn.addEventListener('click', () => cloudSyncDialog.close());
+  }
+
+  if (generateSyncCodeBtn && syncCodeInput) {
+    generateSyncCodeBtn.addEventListener('click', () => {
+      const prefixes = ['ALEX', 'QUEST', 'WRITER', 'SCHOLAR', 'ESSAY', 'LEO'];
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      syncCodeInput.value = `${prefix}-${randNum}`;
+    });
+  }
+
+  if (cloudSyncForm) {
+    cloudSyncForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const raw = syncCodeInput?.value || '';
+      const clean = raw.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+      if (!clean || clean.length < 4) {
+        showToast('Please enter a valid sync code (at least 4 characters).');
+        return;
+      }
+      state.syncCode = clean;
+      saveState();
+      updateSyncUI();
+      await pullFromCloud({ silent: false });
+    });
+  }
+
+  if (manualPushBtn) {
+    manualPushBtn.addEventListener('click', () => pushToCloud({ silent: false }));
+  }
+
+  if (manualPullBtn) {
+    manualPullBtn.addEventListener('click', () => pullFromCloud({ silent: false }));
+  }
+
+  if (disconnectSyncBtn) {
+    disconnectSyncBtn.addEventListener('click', () => {
+      if (confirm('Disconnect this device from cloud sync? Your local draft will stay safe on this device.')) {
+        state.syncCode = '';
+        state.lastSyncedAt = 0;
+        saveState();
+        updateSyncUI();
+        showToast('Cloud sync disconnected.');
+      }
+    });
+  }
+
+  // Initial Sync UI state & automatic cloud pull on app launch if code is already stored
+  updateSyncUI();
+  if (state.syncCode) {
+    pullFromCloud({ silent: true }).catch(() => {});
+  }
 }
 
 initApp();
