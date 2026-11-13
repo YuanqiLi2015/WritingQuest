@@ -1294,6 +1294,30 @@ function initApp() {
   document.getElementById('generate-brainstorm-btn').addEventListener('click', handleGenerateBrainstorm);
   document.getElementById('review-outline-btn').addEventListener('click', handleReviewOutline);
   document.getElementById('outline-form').addEventListener('input', collectCurrentOutline);
+
+  const outlineForm = document.getElementById('outline-form');
+  if (outlineForm) {
+    const outlineFields = outlineForm.querySelectorAll('.form-field');
+    outlineFields.forEach(field => {
+      field.addEventListener('click', e => {
+        const textarea = field.querySelector('textarea');
+        if (textarea && e.target !== textarea) {
+          textarea.focus();
+        }
+      });
+
+      const textarea = field.querySelector('textarea');
+      if (textarea) {
+        textarea.addEventListener('focus', () => {
+          outlineFields.forEach(f => f.classList.remove('selected'));
+          field.classList.add('selected');
+        });
+        textarea.addEventListener('blur', () => {
+          field.classList.remove('selected');
+        });
+      }
+    });
+  }
   document.getElementById('send-outline-to-editor-btn').addEventListener('click', () => {
     const outline = collectCurrentOutline();
     const prompt = getActivePrompt();
