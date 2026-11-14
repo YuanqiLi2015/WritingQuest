@@ -14,11 +14,18 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const kvUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').replace(/\/$/, '');
+  let kvUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
   const kvToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
 
+  if (kvUrl && !kvUrl.startsWith('http://') && !kvUrl.startsWith('https://')) {
+    kvUrl = `https://${kvUrl}`;
+  }
+  kvUrl = kvUrl.replace(/\/+$/, '');
+
+  const url = new URL(req.url || '/', `http://${req.headers?.host || 'localhost'}`);
+
   if (req.method === 'GET') {
-    if (req.query.check === '1') {
+    if (req.query?.check === '1' || url.searchParams.get('check') === '1') {
       return res.status(200).json({
         ok: true,
         isConfigured: Boolean(kvUrl && kvToken),
@@ -27,7 +34,9 @@ export default async function handler(req, res) {
       });
     }
 
-    const syncCode = sanitizeSyncCode(req.query.syncCode || '');
+    const rawCode = req.query?.syncCode || url.searchParams.get('syncCode') || '';
+    const syncCode = sanitizeSyncCode(rawCode);
+
     if (!syncCode || syncCode.length < 4) {
       return res.status(400).json({ ok: false, error: 'Invalid sync code. Must be at least 4 characters.' });
     }
@@ -37,15 +46,21 @@ export default async function handler(req, res) {
         ok: false,
         isConfigured: false,
         error: 'STORAGE_NOT_CONFIGURED',
-        message: 'Upstash Redis environment variables are not active. In Vercel, please click Deployments -> Redeploy to activate them.'
+        message: 'Upstash Redis environment variables are missing in Vercel. Please connect Upstash in Vercel Storage and trigger a Redeploy.'
       });
     }
 
     try {
       const redisKey = `wq_sync_${syncCode}`;
-      const fetchUrl = `${kvUrl}/get/${encodeURIComponent(redisKey)}`;
-      const kvRes = await fetch(fetchUrl, {
-        headers: { Authorization: `Bearer ${kvToken}` }
+
+      // Execute command via Upstash REST endpoint: ["GET", key]
+      const kvRes = await fetch(kvUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${kvToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['GET', redisKey])
       });
 
       if (!kvRes.ok) {
@@ -66,7 +81,7 @@ export default async function handler(req, res) {
         });
       }
 
-      if (data.result === null || data.result === undefined) {
+      if (data.result === null || data.result === undefined || data.result === '') {
         return res.status(200).json({
           ok: true,
           isConfigured: true,
@@ -110,7 +125,7 @@ export default async function handler(req, res) {
         ok: false,
         isConfigured: false,
         error: 'STORAGE_NOT_CONFIGURED',
-        message: 'Upstash Redis environment variables are not active. In Vercel, please click Deployments -> Redeploy to activate them.'
+        message: 'Upstash Redis environment variables are missing in Vercel. Please connect Upstash in Vercel Storage and trigger a Redeploy.'
       });
     }
 
@@ -122,14 +137,16 @@ export default async function handler(req, res) {
         payload: body.payload
       };
 
-      const fetchUrl = `${kvUrl}/set/${encodeURIComponent(redisKey)}`;
-      const kvRes = await fetch(fetchUrl, {
+      const recordJson = JSON.stringify(record);
+
+      // Execute command via Upstash REST endpoint: ["SET", key, value]
+      const kvRes = await fetch(kvUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${kvToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(record)
+        body: JSON.stringify(['SET', redisKey, recordJson])
       });
 
       if (!kvRes.ok) {
