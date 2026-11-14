@@ -1268,6 +1268,14 @@ function escapeHtml(str) {
 // ==========================================
 
 function getSyncPayload() {
+  // Always capture the live DOM values from active outline and editor into state first
+  try {
+    collectCurrentOutline();
+    persistCurrentDraft();
+  } catch {
+    // Ignore DOM read errors if elements are absent
+  }
+
   return {
     version: 1,
     studentName: state.studentName,
@@ -1283,6 +1291,17 @@ function getSyncPayload() {
     essayHistory: state.essayHistory,
     model: state.model
   };
+}
+
+function hasLocalContent() {
+  const hasOutlines = Object.values(state.outlinesByPrompt || {}).some(
+    o => o && Object.values(o).some(v => typeof v === 'string' && v.trim().length > 0)
+  );
+  const hasDrafts = Object.values(state.draftsByPrompt || {}).some(
+    d => d && typeof d.body === 'string' && d.body.trim().length > 0
+  );
+  const hasHistory = Array.isArray(state.essayHistory) && state.essayHistory.length > 0;
+  return hasOutlines || hasDrafts || hasHistory || (state.xp && state.xp > 120);
 }
 
 function applySyncPayload(payload) {
@@ -1301,10 +1320,16 @@ function applySyncPayload(payload) {
     state.customPrompts = payload.customPrompts;
   }
   if (payload.outlinesByPrompt && typeof payload.outlinesByPrompt === 'object') {
-    state.outlinesByPrompt = { ...state.outlinesByPrompt, ...payload.outlinesByPrompt };
+    state.outlinesByPrompt = {
+      ...state.outlinesByPrompt,
+      ...payload.outlinesByPrompt
+    };
   }
   if (payload.draftsByPrompt && typeof payload.draftsByPrompt === 'object') {
-    state.draftsByPrompt = { ...state.draftsByPrompt, ...payload.draftsByPrompt };
+    state.draftsByPrompt = {
+      ...state.draftsByPrompt,
+      ...payload.draftsByPrompt
+    };
   }
   if (payload.lastEvaluation) {
     state.lastEvaluation = payload.lastEvaluation;
@@ -1349,6 +1374,9 @@ function applySyncPayload(payload) {
   saveState();
   renderScholarRank();
   renderCurriculumView();
+  renderOutlineStudio();
+  renderEditorStudio();
+  renderPortfolioView();
   switchTab(state.activeTab || 'curriculum');
   return true;
 }
@@ -1424,7 +1452,7 @@ function updateSyncUI() {
 }
 
 async function pushToCloud({ silent = false } = {}) {
-  if (!state.syncCode) return;
+  if (!state.syncCode) return false;
   state.isSyncing = true;
   updateSyncUI();
 
@@ -1444,22 +1472,32 @@ async function pushToCloud({ silent = false } = {}) {
     if (data.ok) {
       state.lastSyncedAt = data.updatedAt || Date.now();
       saveState();
+      updateSyncUI();
       if (!silent) {
         showToast(`☁️ Cloud saved! (${state.syncCode})`);
       }
+      return true;
     } else if (data.isConfigured === false) {
+      const msg = data.message || 'Upstash Redis storage is not connected or requires Redeploy in Vercel.';
       if (!silent) {
-        showToast('ℹ️ Notice: Vercel KV storage is not connected yet in your Vercel project.');
+        showToast(`⚠️ Sync Notice: ${msg}`);
       }
+      const modalDetail = document.getElementById('modal-sync-detail');
+      if (modalDetail) {
+        modalDetail.innerHTML = `<span style="color:var(--danger, #ef4444);font-weight:600;">⚠️ Upstash Redis not active.</span> In Vercel, go to <strong>Deployments</strong> &rarr; click <strong>Redeploy</strong> to activate the connected database.`;
+      }
+      return false;
     } else {
       if (!silent) {
         showToast(`Sync notice: ${data.error || 'Failed to save to cloud'}`);
       }
+      return false;
     }
   } catch (err) {
     if (!silent) {
       showToast(`Cloud Sync offline: ${err.message}`);
     }
+    return false;
   } finally {
     state.isSyncing = false;
     updateSyncUI();
@@ -1467,7 +1505,7 @@ async function pushToCloud({ silent = false } = {}) {
 }
 
 async function pullFromCloud({ silent = false } = {}) {
-  if (!state.syncCode) return;
+  if (!state.syncCode) return false;
   state.isSyncing = true;
   updateSyncUI();
 
@@ -1479,29 +1517,46 @@ async function pullFromCloud({ silent = false } = {}) {
         applySyncPayload(data.payload);
         state.lastSyncedAt = data.updatedAt || Date.now();
         saveState();
+        updateSyncUI();
         if (!silent) {
           showToast(`☁️ Restored latest progress for ${state.syncCode}!`);
         }
+        return true;
       } else {
-        // No record in cloud yet: push current device data as the initial cloud baseline
-        await pushToCloud({ silent: true });
-        if (!silent) {
-          showToast(`Initialized new cloud sync space for ${state.syncCode}!`);
+        // No record in cloud yet: only push if this device actually has non-empty content to seed
+        if (hasLocalContent()) {
+          await pushToCloud({ silent: true });
+          if (!silent) {
+            showToast(`☁️ Initialized cloud space for ${state.syncCode} with your current essay!`);
+          }
+        } else {
+          if (!silent) {
+            showToast(`ℹ️ No cloud draft found for "${state.syncCode}". Click "Push to Cloud" on your other device first.`);
+          }
         }
+        return false;
       }
     } else if (data.isConfigured === false) {
+      const msg = data.message || 'Upstash Redis storage is not connected or requires Redeploy in Vercel.';
       if (!silent) {
-        showToast('ℹ️ Notice: Vercel KV storage is not connected yet in your Vercel project.');
+        showToast(`⚠️ Sync Notice: ${msg}`);
       }
+      const modalDetail = document.getElementById('modal-sync-detail');
+      if (modalDetail) {
+        modalDetail.innerHTML = `<span style="color:var(--danger, #ef4444);font-weight:600;">⚠️ Upstash Redis not active.</span> In Vercel, go to <strong>Deployments</strong> &rarr; click <strong>Redeploy</strong> to activate the connected database.`;
+      }
+      return false;
     } else {
       if (!silent) {
         showToast(`Sync error: ${data.error || 'Failed to fetch from cloud'}`);
       }
+      return false;
     }
   } catch (err) {
     if (!silent) {
       showToast(`Cloud Sync offline: ${err.message}`);
     }
+    return false;
   } finally {
     state.isSyncing = false;
     updateSyncUI();
@@ -1820,7 +1875,10 @@ function initApp() {
       state.syncCode = clean;
       saveState();
       updateSyncUI();
-      await pullFromCloud({ silent: false });
+      const pulled = await pullFromCloud({ silent: false });
+      if (!pulled && hasLocalContent()) {
+        await pushToCloud({ silent: false });
+      }
     });
   }
 

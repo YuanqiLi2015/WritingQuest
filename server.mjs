@@ -491,6 +491,9 @@ const server = http.createServer(async (req, res) => {
 
     // API: Cloud Sync Storage
     if (url.pathname === '/api/sync' && req.method === 'GET') {
+      if (url.searchParams.get('check') === '1') {
+        return sendJson(res, 200, { ok: true, isConfigured: true, isLocal: true });
+      }
       const rawCode = url.searchParams.get('syncCode') || '';
       const syncCode = rawCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
       if (!syncCode || syncCode.length < 4) {
