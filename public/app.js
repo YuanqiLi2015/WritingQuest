@@ -1239,17 +1239,27 @@ async function syncApiConfig() {
   }
 }
 
+function updateHeaderSettingsDot() {
+  const headerDot = document.getElementById('header-settings-dot');
+  if (!headerDot) return;
+  const isApiConnected = Boolean((state.apiKey && state.apiKey.length > 8) || state.hasServerKey);
+  const hasSyncCode = Boolean(state.syncCode);
+  headerDot.classList.toggle('connected', isApiConnected || hasSyncCode);
+  headerDot.classList.toggle('syncing', state.isSyncing);
+}
+
 function updateApiStatusBadge() {
   const dot = document.getElementById('api-status-dot');
   const label = document.getElementById('api-status-label');
   const hint = document.getElementById('server-key-hint');
   const isConnected = Boolean((state.apiKey && state.apiKey.length > 8) || state.hasServerKey);
 
-  dot.classList.toggle('connected', isConnected);
-  label.textContent = isConnected ? `Gemini Ready (${state.model})` : 'Set Gemini API Key';
+  if (dot) dot.classList.toggle('connected', isConnected);
+  if (label) label.textContent = isConnected ? `Gemini Ready (${state.model})` : 'Set Gemini API Key';
   if (hint && state.hasServerKey) {
     hint.textContent = `Server key active (${state.maskedServerKey}). Enter a new key above only if you wish to replace it.`;
   }
+  updateHeaderSettingsDot();
 }
 
 function escapeHtml(str) {
@@ -1466,6 +1476,7 @@ function updateSyncUI() {
     connectBtn.disabled = state.isSyncing;
     connectBtn.textContent = hasCode ? 'Save Code' : 'Set Sync Code';
   }
+  updateHeaderSettingsDot();
 }
 
 async function pushToCloud({ silent = false } = {}) {
@@ -1760,14 +1771,41 @@ function initApp() {
     showToast(added > 0 ? `Added ${added} Grade ${state.currentGrade} core words to your Vault!` : `All Grade ${state.currentGrade} core words are already in your Vault.`);
   });
 
-  // Settings Modal Dialog (`showModal()`)
+  // Unified Settings Modal Dialog (`showModal()`)
   const settingsDialog = document.getElementById('settings-dialog');
-  document.getElementById('api-status-btn').addEventListener('click', () => {
+  const openSettingsBtn = document.getElementById('open-settings-btn');
+  const apiStatusBtn = document.getElementById('api-status-btn');
+  const cloudSyncBtn = document.getElementById('cloud-sync-btn');
+
+  function openSettingsModal() {
     document.getElementById('gemini-api-key-input').value = state.apiKey || '';
     document.getElementById('gemini-model-select').value = normalizeModel(state.model);
     document.getElementById('student-name-input').value = state.studentName || '';
-    settingsDialog.showModal();
-  });
+    updateSyncUI();
+    if (!settingsDialog.open) {
+      settingsDialog.showModal();
+    }
+  }
+
+  if (openSettingsBtn) {
+    openSettingsBtn.addEventListener('click', openSettingsModal);
+  }
+
+  if (apiStatusBtn) {
+    apiStatusBtn.addEventListener('click', () => {
+      openSettingsModal();
+      document.getElementById('gemini-api-key-input')?.focus();
+    });
+  }
+
+  if (cloudSyncBtn) {
+    cloudSyncBtn.addEventListener('click', () => {
+      openSettingsModal();
+      const syncSection = document.getElementById('cloud-sync-section');
+      syncSection?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('sync-code-input')?.focus();
+    });
+  }
 
   document.getElementById('close-settings-btn').addEventListener('click', () => settingsDialog.close());
   document.getElementById('cancel-settings-btn').addEventListener('click', () => settingsDialog.close());
@@ -1800,8 +1838,7 @@ function initApp() {
       updateApiStatusBadge();
     }
 
-    settingsDialog.close();
-    showToast('Settings saved!');
+    showToast('Profile & Gemini AI settings saved!');
   });
 
   // Custom School Prompt Modal (`showModal()`)
@@ -1839,32 +1876,13 @@ function initApp() {
     showToast(`Created custom Grade ${state.currentGrade} prompt: "${title}"`);
   });
 
-  // Multi-Device Cloud Sync Dialog Event Handlers
-  const cloudSyncDialog = document.getElementById('cloud-sync-dialog');
-  const cloudSyncBtn = document.getElementById('cloud-sync-btn');
-  const closeCloudSyncBtn = document.getElementById('close-cloud-sync-btn');
-  const closeSyncFooterBtn = document.getElementById('close-sync-footer-btn');
+  // Multi-Device Cloud Sync Controls (Inside Unified Settings Dialog)
   const cloudSyncForm = document.getElementById('cloud-sync-form');
   const syncCodeInput = document.getElementById('sync-code-input');
   const generateSyncCodeBtn = document.getElementById('generate-sync-code-btn');
   const manualPushBtn = document.getElementById('manual-push-btn');
   const manualPullBtn = document.getElementById('manual-pull-btn');
   const disconnectSyncBtn = document.getElementById('disconnect-sync-btn');
-
-  if (cloudSyncBtn && cloudSyncDialog) {
-    cloudSyncBtn.addEventListener('click', () => {
-      updateSyncUI();
-      cloudSyncDialog.showModal();
-    });
-  }
-
-  if (closeCloudSyncBtn && cloudSyncDialog) {
-    closeCloudSyncBtn.addEventListener('click', () => cloudSyncDialog.close());
-  }
-
-  if (closeSyncFooterBtn && cloudSyncDialog) {
-    closeSyncFooterBtn.addEventListener('click', () => cloudSyncDialog.close());
-  }
 
   if (syncCodeInput) {
     syncCodeInput.addEventListener('input', () => {

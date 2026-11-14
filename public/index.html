@@ -55,20 +55,10 @@
     </nav>
 
     <div class="header-actions">
-      <div class="scholar-badge" id="scholar-rank-badge">
-        <span class="scholar-level" id="scholar-level-text">Lv. 1 Scholar</span>
-        <span class="scholar-xp" id="scholar-xp-text">0 XP</span>
-      </div>
-      <button type="button" class="status-chip" id="cloud-sync-btn" aria-label="Multi-Device Cloud Sync">
-        <span class="sync-dot" id="cloud-sync-dot" aria-hidden="true"></span>
-        <span id="cloud-sync-label">☁️ Cloud Sync</span>
-      </button>
-      <button type="button" class="status-chip" id="api-status-btn" aria-label="Configure Google Gemini API Key">
-        <span class="status-dot" id="api-status-dot" aria-hidden="true"></span>
-        <span id="api-status-label">Gemini API Setup</span>
-      </button>
-      <button type="button" class="icon-btn" id="theme-toggle-btn" aria-label="Switch color theme">
-        <span id="theme-toggle-label">Theme</span>
+      <button type="button" class="status-chip settings-trigger-btn" id="open-settings-btn" aria-label="Open Settings, Scholar Profile, Cloud Sync, and Theme">
+        <span class="status-dot" id="header-settings-dot" aria-hidden="true"></span>
+        <span aria-hidden="true">⚙️</span>
+        <span id="header-settings-label">Settings</span>
       </button>
     </div>
   </header>
@@ -506,49 +496,128 @@
     </section>
   </main>
 
-  <!-- MODAL 1: GOOGLE GEMINI API & PROFILE SETTINGS (Light-Dismiss Native Dialog) -->
-  <dialog id="settings-dialog" closedby="any" aria-labelledby="settings-dialog-title">
-    <form method="dialog" id="settings-form" class="dialog-form">
-      <div class="dialog-header">
-        <h2 id="settings-dialog-title">Google Gemini API &amp; Tutor Settings</h2>
-        <button type="button" class="icon-btn" id="close-settings-btn" aria-label="Close settings dialog">✕</button>
-      </div>
+  <!-- MODAL 1: UNIFIED SETTINGS, SCHOLAR PROFILE, CLOUD SYNC & THEME (Light-Dismiss Native Dialog) -->
+  <dialog id="settings-dialog" class="unified-settings-dialog" closedby="any" aria-labelledby="settings-dialog-title">
+    <div class="dialog-header">
+      <h2 id="settings-dialog-title">⚙️ Settings &amp; Workspace Hub</h2>
+      <button type="button" class="icon-btn" id="close-settings-btn" aria-label="Close settings dialog">✕</button>
+    </div>
 
-      <p class="dialog-description">
-        WritingQuest connects directly to the <strong>Google Gemini API</strong> for real-time Socratic coaching, outline diagnostics, and 4D rubric grading. Your API key is stored locally in your workspace <code>.env</code> and browser storage.
-      </p>
-
-      <div class="form-field">
-        <label for="gemini-api-key-input">Google Gemini API Key</label>
-        <input
-          type="password"
-          id="gemini-api-key-input"
-          placeholder="AIzaSy..."
-          autocomplete="off"
-        >
-        <small class="field-hint" id="server-key-hint">
-          Get a key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. Leave blank to keep existing server key or use Built-in Heuristic Coach.
-        </small>
+    <div class="settings-overview-bar" aria-label="Scholar Status and Quick Controls">
+      <div class="scholar-badge" id="scholar-rank-badge">
+        <span class="scholar-level" id="scholar-level-text">Lv. 1 Scholar</span>
+        <span class="scholar-xp" id="scholar-xp-text">0 XP</span>
       </div>
+      <button type="button" class="status-chip" id="cloud-sync-btn" aria-label="Jump to Multi-Device Cloud Sync">
+        <span class="sync-dot" id="cloud-sync-dot" aria-hidden="true"></span>
+        <span id="cloud-sync-label">☁️ Cloud Sync</span>
+      </button>
+      <button type="button" class="status-chip" id="api-status-btn" aria-label="Jump to Google Gemini API Configuration">
+        <span class="status-dot" id="api-status-dot" aria-hidden="true"></span>
+        <span id="api-status-label">Gemini API Setup</span>
+      </button>
+      <button type="button" class="icon-btn" id="theme-toggle-btn" aria-label="Switch color theme">
+        <span id="theme-toggle-label">Theme</span>
+      </button>
+    </div>
 
-      <div class="form-field">
-        <label for="gemini-model-select">Gemini Model</label>
-        <select id="gemini-model-select">
-          <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended: Fast &amp; Responsive Tutoring)</option>
-          <option value="gemini-3.8-pro">gemini-3.8-pro (Deep Rhetorical &amp; AP/College Essay Analysis)</option>
-        </select>
-      </div>
+    <div class="settings-sections-stack">
+      <form method="dialog" id="settings-form" class="dialog-form settings-section-card">
+        <h3 class="settings-section-title">🤖 Scholar Profile &amp; Google Gemini AI</h3>
+        <p class="dialog-description">
+          WritingQuest connects directly to the <strong>Google Gemini API</strong> for real-time Socratic coaching, outline diagnostics, and 4D rubric grading.
+        </p>
 
-      <div class="form-field">
-        <label for="student-name-input">Student Name (Optional)</label>
-        <input type="text" id="student-name-input" placeholder="e.g., Alex" autocomplete="given-name">
-      </div>
+        <div class="settings-grid-row">
+          <div class="form-field">
+            <label for="student-name-input">Student Name</label>
+            <input type="text" id="student-name-input" placeholder="e.g., Alex" autocomplete="given-name">
+          </div>
 
-      <div class="dialog-footer">
-        <button type="button" class="btn secondary" id="cancel-settings-btn">Cancel</button>
-        <button type="submit" class="btn primary" id="save-settings-btn">Save Configuration</button>
+          <div class="form-field">
+            <label for="gemini-model-select">Gemini Model</label>
+            <select id="gemini-model-select">
+              <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended: Fast Tutoring)</option>
+              <option value="gemini-3.8-pro">gemini-3.8-pro (Deep AP/College Essay Analysis)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="gemini-api-key-input">Google Gemini API Key</label>
+          <input
+            type="password"
+            id="gemini-api-key-input"
+            placeholder="AIzaSy..."
+            autocomplete="off"
+          >
+          <small class="field-hint" id="server-key-hint">
+            Get a key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. Leave blank to keep existing server key or use Built-in Heuristic Coach.
+          </small>
+        </div>
+
+        <div class="settings-card-actions">
+          <button type="submit" class="btn primary" id="save-settings-btn">Save Profile &amp; AI Settings</button>
+        </div>
+      </form>
+
+      <div class="settings-section-card" id="cloud-sync-section">
+        <h3 class="settings-section-title" id="cloud-sync-title">☁️ Multi-Device Cloud Sync</h3>
+        <p class="dialog-description">
+          Keep your essay drafts, outlines, vocabulary vault, and revision notes in sync across <strong>Mac</strong>, <strong>iPad</strong>, and <strong>iPhone</strong> using a private Family Sync Code.
+        </p>
+
+        <div class="sync-status-card" id="sync-status-card">
+          <p class="muted-sub" id="modal-sync-detail">
+            Enter your family sync code below, then click "Push to Cloud" (to upload) or "Pull from Cloud" (to download).
+          </p>
+        </div>
+
+        <form id="cloud-sync-form" class="dialog-form">
+          <div class="form-field">
+            <label for="sync-code-input">Family Sync Code (4–24 letters or numbers)</label>
+            <div class="sync-input-row">
+              <input
+                type="text"
+                id="sync-code-input"
+                placeholder="e.g. ALEX-2026"
+                autocapitalize="characters"
+                spellcheck="false"
+                autocomplete="off"
+                required
+                minlength="4"
+                maxlength="24"
+              >
+              <button type="button" class="btn secondary small" id="generate-sync-code-btn">Generate Random</button>
+              <button type="submit" class="btn secondary small" id="connect-sync-btn">Save Code</button>
+            </div>
+            <small class="field-hint">Use this exact same code on your Mac, iPad, and iPhone to keep them in sync.</small>
+          </div>
+
+          <div class="sync-actions-row">
+            <button type="button" class="btn primary" id="manual-push-btn" disabled>⬆️ Push to Cloud</button>
+            <button type="button" class="btn primary" id="manual-pull-btn" disabled>⬇️ Pull from Cloud</button>
+            <button type="button" class="btn ghost" id="disconnect-sync-btn" disabled>Disconnect</button>
+          </div>
+        </form>
+
+        <details class="toolkit-disclosure">
+          <summary>ℹ️ Cloud Storage Setup (Upstash Redis / Vercel Marketplace)</summary>
+          <div class="disclosure-body">
+            <ol class="coach-list">
+              <li>Log in to your project at <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Vercel Dashboard</a>.</li>
+              <li>Click the <strong>Storage</strong> tab &rarr; select <strong>Upstash</strong> (or click <strong>Browse Marketplace</strong> &rarr; <strong>Upstash</strong>).</li>
+              <li>Choose <strong>Serverless Redis</strong> (Free Tier) &rarr; connect to <strong>WritingQuest</strong>.</li>
+              <li>Done! Vercel automatically populates the credentials. All devices using your sync code will sync seamlessly across the globe!</li>
+            </ol>
+          </div>
+        </details>
       </div>
-    </form>
+    </div>
+
+    <div class="dialog-footer">
+      <button type="button" class="btn secondary" id="cancel-settings-btn">Close</button>
+    </div>
   </dialog>
 
   <!-- MODAL 2: CREATE CUSTOM SCHOOL PROMPT -->
@@ -589,75 +658,6 @@
         <button type="submit" class="btn primary">Start Coaching on This Prompt</button>
       </div>
     </form>
-  </dialog>
-
-  <!-- MODAL 3: MULTI-DEVICE CLOUD SYNC -->
-  <dialog id="cloud-sync-dialog" closedby="any" aria-labelledby="cloud-sync-title">
-    <div class="dialog-header">
-      <h2 id="cloud-sync-title">☁️ Multi-Device Cloud Sync</h2>
-      <button type="button" class="icon-btn" id="close-cloud-sync-btn" aria-label="Close cloud sync dialog">✕</button>
-    </div>
-
-    <p class="dialog-description">
-      Keep your essay drafts, outlines, vocabulary vault, and revision notes in continuous sync across <strong>Mac</strong>, <strong>iPad</strong>, and <strong>iPhone</strong> using a private Family Sync Code.
-    </p>
-
-    <div class="sync-status-card" id="sync-status-card">
-      <div class="panel-header">
-        <div>
-          <span class="status-dot" id="modal-sync-dot"></span>
-          <strong id="modal-sync-status-title">Local Storage Only</strong>
-        </div>
-        <span class="muted-sub" id="modal-sync-time">Not connected</span>
-      </div>
-      <p class="muted-sub" id="modal-sync-detail">
-        Enter a sync code below to enable automatic continuous cloud sync.
-      </p>
-    </div>
-
-    <form id="cloud-sync-form" class="dialog-form">
-      <div class="form-field">
-        <label for="sync-code-input">Family Sync Code (4–24 letters or numbers)</label>
-        <div class="sync-input-row">
-          <input
-            type="text"
-            id="sync-code-input"
-            placeholder="e.g. ALEX-2026"
-            autocapitalize="characters"
-            spellcheck="false"
-            autocomplete="off"
-            required
-            minlength="4"
-            maxlength="24"
-          >
-          <button type="button" class="btn secondary small" id="generate-sync-code-btn">Generate Random</button>
-        </div>
-        <small class="field-hint">Use this exact same code on your Mac, iPad, and iPhone to keep them in sync.</small>
-      </div>
-
-      <div class="sync-actions-row">
-        <button type="button" class="btn primary" id="manual-push-btn" disabled>⬆️ Push to Cloud</button>
-        <button type="button" class="btn primary" id="manual-pull-btn" disabled>⬇️ Pull from Cloud</button>
-        <button type="submit" class="btn secondary" id="connect-sync-btn">Save Code</button>
-        <button type="button" class="btn ghost" id="disconnect-sync-btn" disabled>Disconnect</button>
-      </div>
-    </form>
-
-    <details class="toolkit-disclosure mt-heading">
-      <summary>ℹ️ Cloud Storage Setup (Upstash Redis / Vercel Marketplace)</summary>
-      <div class="disclosure-body">
-        <ol class="coach-list">
-          <li>Log in to your project at <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Vercel Dashboard</a>.</li>
-          <li>Click the <strong>Storage</strong> tab &rarr; select <strong>Upstash</strong> (or click <strong>Browse Marketplace</strong> &rarr; <strong>Upstash</strong>).</li>
-          <li>Choose <strong>Serverless Redis</strong> (Free Tier) &rarr; connect to <strong>WritingQuest</strong>.</li>
-          <li>Done! Vercel automatically populates the credentials. All devices using your sync code will sync seamlessly across the globe!</li>
-        </ol>
-      </div>
-    </details>
-
-    <div class="dialog-footer">
-      <button type="button" class="btn secondary" id="close-sync-footer-btn">Close</button>
-    </div>
   </dialog>
 
   <div id="toast-banner" class="toast-banner" role="status" aria-live="polite" hidden></div>
