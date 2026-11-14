@@ -468,6 +468,16 @@ function buildLocalEssayEvaluation({ grade, promptTitle, genre, essayTitle, essa
 
 const SYNC_STORE_PATH = path.join(__dirname, '.sync-store.json');
 
+function getUpstashConfig() {
+  let kvUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').trim();
+  const kvToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
+  if (kvUrl && !kvUrl.startsWith('http://') && !kvUrl.startsWith('https://')) {
+    kvUrl = `https://${kvUrl}`;
+  }
+  kvUrl = kvUrl.replace(/\/+$/, '');
+  return { kvUrl, kvToken, hasUpstash: Boolean(kvUrl && kvToken) };
+}
+
 async function loadSyncStore() {
   try {
     const raw = await fs.readFile(SYNC_STORE_PATH, 'utf8');
@@ -478,11 +488,7 @@ async function loadSyncStore() {
 }
 
 async function saveSyncStore(store) {
-  try {
-    await fs.writeFile(SYNC_STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Failed to save sync store:', err);
-  }
+  await fs.writeFile(SYNC_STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
 }
 
 const server = http.createServer(async (req, res) => {
@@ -491,14 +497,64 @@ const server = http.createServer(async (req, res) => {
 
     // API: Cloud Sync Storage
     if (url.pathname === '/api/sync' && req.method === 'GET') {
+      const { kvUrl, kvToken, hasUpstash } = getUpstashConfig();
+      const isVercel = Boolean(process.env.VERCEL);
+
       if (url.searchParams.get('check') === '1') {
-        return sendJson(res, 200, { ok: true, isConfigured: true, isLocal: true });
+        return sendJson(res, 200, {
+          ok: true,
+          isConfigured: hasUpstash || !isVercel,
+          storageMode: hasUpstash ? 'upstash-redis' : isVercel ? 'unconfigured-vercel' : 'local-file'
+        });
       }
+
       const rawCode = url.searchParams.get('syncCode') || '';
       const syncCode = rawCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
       if (!syncCode || syncCode.length < 4) {
         return sendJson(res, 400, { ok: false, error: 'Invalid sync code. Must be at least 4 characters.' });
       }
+
+      if (hasUpstash) {
+        const redisKey = `wq_sync_${syncCode}`;
+        const kvRes = await fetch(kvUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${kvToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(['GET', redisKey])
+        });
+        if (!kvRes.ok) {
+          const text = await kvRes.text();
+          return sendJson(res, 500, { ok: false, isConfigured: true, error: `Upstash HTTP ${kvRes.status}: ${text}` });
+        }
+        const data = await kvRes.json();
+        if (data.error) {
+          return sendJson(res, 500, { ok: false, isConfigured: true, error: `Redis Error: ${data.error}` });
+        }
+        if (data.result === null || data.result === undefined || data.result === '') {
+          return sendJson(res, 200, { ok: true, isConfigured: true, found: false, syncCode });
+        }
+        const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+        return sendJson(res, 200, {
+          ok: true,
+          isConfigured: true,
+          found: true,
+          syncCode,
+          payload: parsed.payload || parsed,
+          updatedAt: parsed.updatedAt || Date.now()
+        });
+      }
+
+      if (isVercel) {
+        return sendJson(res, 200, {
+          ok: false,
+          isConfigured: false,
+          error: 'STORAGE_NOT_CONFIGURED',
+          message: 'Upstash Redis environment variables are not active on Vercel. Please connect Upstash in Vercel Storage and click Redeploy.'
+        });
+      }
+
       const store = await loadSyncStore();
       const record = store[syncCode];
       if (!record) {
@@ -515,6 +571,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/api/sync' && req.method === 'POST') {
+      const { kvUrl, kvToken, hasUpstash } = getUpstashConfig();
+      const isVercel = Boolean(process.env.VERCEL);
+
       const body = await readJsonBody(req);
       const syncCode = (body.syncCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
       if (!syncCode || syncCode.length < 4) {
@@ -523,12 +582,51 @@ const server = http.createServer(async (req, res) => {
       if (!body.payload) {
         return sendJson(res, 400, { ok: false, error: 'Missing sync payload.' });
       }
-      const store = await loadSyncStore();
-      store[syncCode] = {
+
+      const record = {
         syncCode,
         updatedAt: body.updatedAt || Date.now(),
         payload: body.payload
       };
+
+      if (hasUpstash) {
+        const redisKey = `wq_sync_${syncCode}`;
+        const kvRes = await fetch(kvUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${kvToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(['SET', redisKey, JSON.stringify(record)])
+        });
+        if (!kvRes.ok) {
+          const text = await kvRes.text();
+          return sendJson(res, 500, { ok: false, isConfigured: true, error: `Upstash HTTP ${kvRes.status}: ${text}` });
+        }
+        const data = await kvRes.json();
+        if (data.error) {
+          return sendJson(res, 500, { ok: false, isConfigured: true, error: `Redis Error: ${data.error}` });
+        }
+        return sendJson(res, 200, {
+          ok: true,
+          isConfigured: true,
+          syncCode,
+          updatedAt: record.updatedAt,
+          status: data.result || 'OK'
+        });
+      }
+
+      if (isVercel) {
+        return sendJson(res, 200, {
+          ok: false,
+          isConfigured: false,
+          error: 'STORAGE_NOT_CONFIGURED',
+          message: 'Upstash Redis environment variables are not active on Vercel. Please connect Upstash in Vercel Storage and click Redeploy.'
+        });
+      }
+
+      const store = await loadSyncStore();
+      store[syncCode] = record;
       await saveSyncStore(store);
       return sendJson(res, 200, {
         ok: true,
