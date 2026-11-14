@@ -223,20 +223,6 @@
     white-space: nowrap;
   }
 
-  .app-tagline {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  @media (max-width: 1020px) {
-    .app-tagline {
-      display: none;
-    }
-  }
-
   .grade-ribbon {
     display: flex;
     align-items: center;
@@ -706,28 +692,6 @@
     gap: 0.5rem;
   }
 
-  .prompt-meta-right {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-  }
-
-  .select-status-pill {
-    font-size: 0.74rem;
-    font-weight: 700;
-    padding: 0.18rem 0.55rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-subtle);
-    background-color: var(--bg-subtle);
-    color: var(--text-muted);
-  }
-
-  .prompt-card.selected .select-status-pill {
-    background-color: var(--brand-primary);
-    border-color: var(--brand-primary);
-    color: var(--brand-primary-text);
-  }
-
   .genre-pill {
     font-size: 0.76rem;
     font-weight: 700;
@@ -903,27 +867,6 @@
   .outline-form .form-field.selected .outline-field-header label {
     color: var(--brand-primary);
     font-weight: 700;
-  }
-
-  .field-focus-indicator {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 0.18rem 0.6rem;
-    border-radius: 999px;
-    background-color: var(--brand-primary);
-    color: var(--brand-primary-text);
-    opacity: 0;
-    transform: scale(0.9);
-    transition: opacity 0.18s ease, transform 0.18s ease;
-    pointer-events: none;
-    flex-shrink: 0;
-  }
-
-  .outline-form .form-field:focus-within .field-focus-indicator,
-  .outline-form .form-field:has(:focus) .field-focus-indicator,
-  .outline-form .form-field.selected .field-focus-indicator {
-    opacity: 1;
-    transform: scale(1);
   }
 
   .outline-form .form-field:focus-within textarea,
@@ -1506,6 +1449,58 @@
   dialog.unified-settings-dialog {
     inline-size: min(94vw, 44rem);
     padding: 1.35rem 1.5rem;
+  }
+
+  dialog.sample-draft-dialog {
+    inline-size: min(94vw, 46rem);
+    padding: 1.35rem 1.6rem;
+  }
+
+  .sample-callout-banner {
+    background-color: var(--brand-soft);
+    border-inline-start: 4px solid var(--brand-primary);
+    border-radius: 0.6rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.88rem;
+    margin-block: 0.85rem 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .sample-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    margin-block-end: 0.85rem;
+  }
+
+  .sample-draft-article {
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    padding: 1.35rem 1.5rem;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.05rem;
+    line-height: 1.75;
+    max-block-size: 52dvh;
+    overflow-y: auto;
+    color: var(--text-primary);
+  }
+
+  .sample-draft-article p {
+    margin-block-end: 1rem;
+  }
+
+  .sample-draft-article p:last-child {
+    margin-block-end: 0;
+  }
+
+  .sample-dialog-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    margin-block-start: 1rem;
   }
 
   dialog::backdrop {

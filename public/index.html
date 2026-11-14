@@ -37,7 +37,6 @@
       </div>
       <div>
         <h1 class="app-title">WritingQuest</h1>
-        <p class="app-tagline">Grade 6–12 Socratic English Writing Coach &amp; Rubric Studio</p>
       </div>
     </div>
 
@@ -201,7 +200,7 @@
             </div>
             <div class="btn-group">
               <button type="button" class="btn secondary" id="review-outline-btn">AI Review My Outline</button>
-              <button type="button" class="btn primary" id="send-outline-to-editor-btn">Proceed to Drafting Studio →</button>
+              <button type="button" class="btn primary" id="send-outline-to-editor-btn">Proceed to Drafting Studio</button>
             </div>
           </div>
 
@@ -209,7 +208,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-hook">1. Opening Hook &amp; Context (How will you draw the reader in?)</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-hook" class="auto-textarea" placeholder="Draft a vivid image, paradoxical question, or historical snapshot..."></textarea>
             </div>
@@ -217,7 +215,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-thesis">2. Working Thesis Statement / Central Claim (Your core argument + line of reasoning)</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-thesis" class="auto-textarea" placeholder="Although..., ultimately [claim] because [mechanistic reason]..."></textarea>
             </div>
@@ -225,7 +222,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-body1">3. Body Paragraph 1: First Pillar (Topic Sentence + Specific Evidence + Analysis)</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-body1" class="auto-textarea" placeholder="Claim 1 + concrete example/quote + how it proves your thesis..."></textarea>
             </div>
@@ -233,7 +229,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-body2">4. Body Paragraph 2: Second Pillar (Topic Sentence + Specific Evidence + Analysis)</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-body2" class="auto-textarea" placeholder="Claim 2 + concrete example/quote + deeper implication..."></textarea>
             </div>
@@ -241,7 +236,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-body3">5. Body Paragraph 3 / Synthesis (Optional Third Point or Deeper Exploration)</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-body3" class="auto-textarea" placeholder="Additional evidence, cross-text connection, or systemic impact..."></textarea>
             </div>
@@ -249,7 +243,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-counter">6. Counterargument, Concession &amp; Turn / Reflective Pivot</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-counter" class="auto-textarea" placeholder="What valid point does the other side have, and how does your reasoning outweigh or refine it?"></textarea>
             </div>
@@ -257,7 +250,6 @@
             <div class="form-field">
               <div class="outline-field-header">
                 <label for="outline-conclusion">7. Conclusion &amp; "So What?" Takeaway (Why does this matter in the larger picture?)</label>
-                <span class="field-focus-indicator">Selected</span>
               </div>
               <textarea id="outline-conclusion" class="auto-textarea" placeholder="Synthesize your insights without merely repeating your introduction word-for-word..."></textarea>
             </div>
@@ -658,6 +650,36 @@
         <button type="submit" class="btn primary">Start Coaching on This Prompt</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- MODAL 3: SAMPLE STUDENT DRAFT VIEWER (Light-Dismiss Native Dialog) -->
+  <dialog id="sample-draft-dialog" class="sample-draft-dialog" closedby="any" aria-labelledby="sample-draft-dialog-title">
+    <div class="dialog-header">
+      <div>
+        <h2 id="sample-draft-dialog-title">📖 Sample Student Draft &amp; Reference</h2>
+        <p class="muted-sub" id="sample-draft-prompt-title">Active Assignment Model</p>
+      </div>
+      <button type="button" class="icon-btn" id="close-sample-draft-btn" aria-label="Close sample draft dialog">✕</button>
+    </div>
+
+    <div class="sample-callout-banner">
+      💡 <strong>Learning Reference:</strong> This model essay demonstrates grade-calibrated evidence, sentence cadence, and paragraph structure. Your personal draft in the Drafting Studio remains completely safe and untouched.
+    </div>
+
+    <div class="sample-meta-row">
+      <span class="genre-pill" id="sample-genre-badge">Argumentative</span>
+      <span class="difficulty-pill" id="sample-grade-badge">Grade 8</span>
+      <span class="dim-score-pill" id="sample-word-count-badge">0 words</span>
+    </div>
+
+    <article class="sample-draft-article" id="sample-draft-body" tabindex="0">
+      <!-- Paragraphs dynamically inserted -->
+    </article>
+
+    <div class="dialog-footer sample-dialog-footer">
+      <button type="button" class="btn secondary" id="copy-sample-draft-btn">📋 Copy Sample Text</button>
+      <button type="button" class="btn primary" id="close-sample-draft-footer-btn">Close Reference</button>
+    </div>
   </dialog>
 
   <div id="toast-banner" class="toast-banner" role="status" aria-live="polite" hidden></div>

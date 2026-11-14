@@ -292,7 +292,6 @@ function renderPromptCards() {
         <span class="genre-pill">${escapeHtml(prompt.genre)}</span>
         <div class="prompt-meta-right">
           <span class="difficulty-pill">Grade ${state.currentGrade} • ${escapeHtml(prompt.difficulty || 'Core')}</span>
-          <span class="select-status-pill">${isSelected ? '✓ Selected' : 'Select'}</span>
         </div>
       </div>
       <h3>${escapeHtml(prompt.title)}</h3>
@@ -313,27 +312,17 @@ function renderPromptCards() {
     const actions = document.createElement('div');
     actions.className = 'prompt-card-actions';
 
-    const outlineBtn = document.createElement('button');
-    outlineBtn.type = 'button';
-    outlineBtn.className = 'btn secondary small';
-    outlineBtn.textContent = '1. Brainstorm & Outline';
-    outlineBtn.addEventListener('click', e => {
+    const proceedBtn = document.createElement('button');
+    proceedBtn.type = 'button';
+    proceedBtn.className = 'btn primary small';
+    proceedBtn.textContent = 'Proceed to Brainstorm & Outline';
+    proceedBtn.addEventListener('click', e => {
       e.stopPropagation();
       selectPrompt(prompt.id);
       switchTab('outline');
     });
 
-    const writeBtn = document.createElement('button');
-    writeBtn.type = 'button';
-    writeBtn.className = 'btn primary small';
-    writeBtn.textContent = '2. Open Drafting Studio →';
-    writeBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      selectPrompt(prompt.id);
-      switchTab('editor');
-    });
-
-    actions.append(outlineBtn, writeBtn);
+    actions.appendChild(proceedBtn);
     bottomDiv.appendChild(actions);
 
     card.addEventListener('click', () => {
@@ -368,10 +357,6 @@ function selectPrompt(promptId, { notify = false } = {}) {
     const isSel = card.dataset.promptId === promptId;
     card.classList.toggle('selected', isSel);
     card.setAttribute('aria-current', isSel ? 'true' : 'false');
-    const pill = card.querySelector('.select-status-pill');
-    if (pill) {
-      pill.textContent = isSel ? '✓ Selected' : 'Select';
-    }
   });
 
   if (notify) {
@@ -1647,40 +1632,45 @@ function initApp() {
           textarea.focus();
         }
       });
-
-      const textarea = field.querySelector('textarea');
-      if (textarea) {
-        textarea.addEventListener('focus', () => {
-          outlineFields.forEach(f => f.classList.remove('selected'));
-          field.classList.add('selected');
-        });
-        textarea.addEventListener('blur', () => {
-          field.classList.remove('selected');
-        });
-      }
     });
   }
+
   document.getElementById('send-outline-to-editor-btn').addEventListener('click', () => {
     const outline = collectCurrentOutline();
     const prompt = getActivePrompt();
-    const currentDraft = state.draftsByPrompt[prompt.id]?.body || '';
-    if (!currentDraft.trim() && (outline.hook || outline.thesis || outline.body1)) {
-      const scaffold = [
-        [outline.hook, outline.thesis].filter(Boolean).join(' '),
-        outline.body1,
-        outline.body2,
-        outline.body3,
-        outline.counter,
-        outline.conclusion
-      ]
-        .filter(Boolean)
-        .join('\n\n');
+
+    const intro = [outline.hook, outline.thesis].filter(Boolean).join(' ');
+    const paragraphs = [
+      intro,
+      outline.body1,
+      outline.body2,
+      outline.body3,
+      outline.counter,
+      outline.conclusion
+    ].filter(p => typeof p === 'string' && p.trim().length > 0);
+
+    const scaffold = paragraphs.join('\n\n');
+
+    if (scaffold.trim().length > 0) {
+      const currentDraft = (state.draftsByPrompt[prompt.id]?.body || '').trim();
+      if (currentDraft && currentDraft !== scaffold) {
+        const confirmed = confirm(
+          'Transfer your outline sections into the Drafting Studio? This will update your draft with the outline paragraphs.'
+        );
+        if (!confirmed) {
+          switchTab('editor');
+          return;
+        }
+      }
+
       state.draftsByPrompt[prompt.id] = {
-        title: prompt.title,
+        title: state.draftsByPrompt[prompt.id]?.title || prompt.title,
         body: scaffold
       };
       saveState();
+      showToast('Outline loaded into Drafting Studio paragraphs!');
     }
+
     switchTab('editor');
   });
 
@@ -1691,16 +1681,75 @@ function initApp() {
     updateLiveTelemetry();
   });
 
-  document.getElementById('load-sample-draft-btn').addEventListener('click', () => {
+  // Sample Student Draft Reference Modal (Study only — never overwrites student's active draft)
+  const sampleDraftDialog = document.getElementById('sample-draft-dialog');
+  const loadSampleDraftBtn = document.getElementById('load-sample-draft-btn');
+  const closeSampleDraftBtn = document.getElementById('close-sample-draft-btn');
+  const closeSampleDraftFooterBtn = document.getElementById('close-sample-draft-footer-btn');
+  const copySampleDraftBtn = document.getElementById('copy-sample-draft-btn');
+
+  function openSampleDraftModal() {
     const prompt = getActivePrompt();
     const sample = prompt.sampleDraft || prompt.modelExcerpt || '';
-    if (!sample) return;
-    document.getElementById('essay-title-input').value = prompt.title;
-    document.getElementById('essay-draft-textarea').value = sample;
-    persistCurrentDraft();
-    updateLiveTelemetry();
-    showToast(`Loaded Grade ${state.currentGrade} Sample Draft — Click "Evaluate & Coach Essay" to test grading!`);
-  });
+    if (!sample) {
+      showToast('No sample draft available for this prompt yet.');
+      return;
+    }
+
+    const titleEl = document.getElementById('sample-draft-prompt-title');
+    const genreEl = document.getElementById('sample-genre-badge');
+    const gradeEl = document.getElementById('sample-grade-badge');
+    const wordCountEl = document.getElementById('sample-word-count-badge');
+    const bodyEl = document.getElementById('sample-draft-body');
+
+    if (titleEl) titleEl.textContent = `Model Essay: ${prompt.title}`;
+    if (genreEl) genreEl.textContent = prompt.genre || 'Essay';
+    if (gradeEl) gradeEl.textContent = `Grade ${state.currentGrade}`;
+
+    const words = (sample.match(/\b[a-zA-Z'-]+\b/g) || []).length;
+    if (wordCountEl) wordCountEl.textContent = `${words} words`;
+
+    if (bodyEl) {
+      bodyEl.innerHTML = '';
+      const paragraphs = sample.split(/\n\s*\n/);
+      paragraphs.forEach(p => {
+        const trimmed = p.trim();
+        if (trimmed) {
+          const pEl = document.createElement('p');
+          pEl.textContent = trimmed;
+          bodyEl.appendChild(pEl);
+        }
+      });
+    }
+
+    if (sampleDraftDialog && !sampleDraftDialog.open) {
+      sampleDraftDialog.showModal();
+    }
+  }
+
+  if (loadSampleDraftBtn) {
+    loadSampleDraftBtn.addEventListener('click', openSampleDraftModal);
+  }
+  if (closeSampleDraftBtn) {
+    closeSampleDraftBtn.addEventListener('click', () => sampleDraftDialog?.close());
+  }
+  if (closeSampleDraftFooterBtn) {
+    closeSampleDraftFooterBtn.addEventListener('click', () => sampleDraftDialog?.close());
+  }
+  if (copySampleDraftBtn) {
+    copySampleDraftBtn.addEventListener('click', async () => {
+      const prompt = getActivePrompt();
+      const sample = prompt.sampleDraft || prompt.modelExcerpt || '';
+      if (sample) {
+        try {
+          await navigator.clipboard.writeText(sample);
+          showToast('Sample essay copied to clipboard!');
+        } catch {
+          showToast('Failed to copy to clipboard.');
+        }
+      }
+    });
+  }
 
   document.getElementById('evaluate-essay-btn').addEventListener('click', handleEvaluateEssay);
   document.getElementById('re-evaluate-btn').addEventListener('click', handleEvaluateEssay);
