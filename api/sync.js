@@ -5,32 +5,6 @@ function sanitizeSyncCode(code) {
   return code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
 }
 
-async function runRedisCommand(kvUrl, kvToken, commandArray) {
-  const baseUrl = kvUrl.replace(/\/$/, '');
-  const res = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${kvToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(commandArray)
-  });
-
-  const rawText = await res.text();
-  let data;
-  try {
-    data = JSON.parse(rawText);
-  } catch {
-    throw new Error(`Invalid response from Redis storage: ${rawText.slice(0, 100)}`);
-  }
-
-  if (data.error) {
-    throw new Error(`Redis Error: ${data.error}`);
-  }
-
-  return data.result;
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -40,14 +14,11 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const kvUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  const kvUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').replace(/\/$/, '');
+  const kvToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '').trim();
 
   if (req.method === 'GET') {
-    const rawCode = req.query.syncCode || '';
-    const isCheckOnly = req.query.check === '1';
-
-    if (isCheckOnly) {
+    if (req.query.check === '1') {
       return res.status(200).json({
         ok: true,
         isConfigured: Boolean(kvUrl && kvToken),
@@ -56,7 +27,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const syncCode = sanitizeSyncCode(rawCode);
+    const syncCode = sanitizeSyncCode(req.query.syncCode || '');
     if (!syncCode || syncCode.length < 4) {
       return res.status(400).json({ ok: false, error: 'Invalid sync code. Must be at least 4 characters.' });
     }
@@ -66,28 +37,36 @@ export default async function handler(req, res) {
         ok: false,
         isConfigured: false,
         error: 'STORAGE_NOT_CONFIGURED',
-        message: 'Upstash Redis environment variables are not active. If you just connected Upstash in Vercel Storage, please click Deployments -> Redeploy in Vercel to activate them.'
+        message: 'Upstash Redis environment variables are not active. In Vercel, please click Deployments -> Redeploy to activate them.'
       });
     }
 
     try {
       const redisKey = `wq_sync_${syncCode}`;
-      let rawResult;
+      const fetchUrl = `${kvUrl}/get/${encodeURIComponent(redisKey)}`;
+      const kvRes = await fetch(fetchUrl, {
+        headers: { Authorization: `Bearer ${kvToken}` }
+      });
 
-      try {
-        rawResult = await runRedisCommand(kvUrl, kvToken, ['GET', redisKey]);
-      } catch (cmdErr) {
-        // Fallback to path-based endpoint if command array is not supported
-        const fetchUrl = `${kvUrl.replace(/\/$/, '')}/get/${encodeURIComponent(redisKey)}`;
-        const fbRes = await fetch(fetchUrl, {
-          headers: { Authorization: `Bearer ${kvToken}` }
+      if (!kvRes.ok) {
+        const text = await kvRes.text();
+        return res.status(500).json({
+          ok: false,
+          isConfigured: true,
+          error: `Upstash HTTP ${kvRes.status}: ${text}`
         });
-        const fbData = await fbRes.json();
-        if (fbData.error) throw new Error(fbData.error);
-        rawResult = fbData.result;
       }
 
-      if (rawResult === null || rawResult === undefined) {
+      const data = await kvRes.json();
+      if (data.error) {
+        return res.status(500).json({
+          ok: false,
+          isConfigured: true,
+          error: `Redis Error: ${data.error}`
+        });
+      }
+
+      if (data.result === null || data.result === undefined) {
         return res.status(200).json({
           ok: true,
           isConfigured: true,
@@ -96,7 +75,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const parsed = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+      const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
       return res.status(200).json({
         ok: true,
         isConfigured: true,
@@ -131,7 +110,7 @@ export default async function handler(req, res) {
         ok: false,
         isConfigured: false,
         error: 'STORAGE_NOT_CONFIGURED',
-        message: 'Upstash Redis environment variables are not active. If you just connected Upstash in Vercel Storage, please click Deployments -> Redeploy in Vercel to activate them.'
+        message: 'Upstash Redis environment variables are not active. In Vercel, please click Deployments -> Redeploy to activate them.'
       });
     }
 
@@ -143,33 +122,32 @@ export default async function handler(req, res) {
         payload: body.payload
       };
 
-      const recordJson = JSON.stringify(record);
-      let setSuccess = false;
+      const fetchUrl = `${kvUrl}/set/${encodeURIComponent(redisKey)}`;
+      const kvRes = await fetch(fetchUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${kvToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(record)
+      });
 
-      try {
-        // Set with 90-day expiry (7776000 seconds)
-        const result = await runRedisCommand(kvUrl, kvToken, [
-          'SET',
-          redisKey,
-          recordJson,
-          'EX',
-          7776000
-        ]);
-        setSuccess = Boolean(result);
-      } catch (cmdErr) {
-        // Fallback to path-based endpoint
-        const fetchUrl = `${kvUrl.replace(/\/$/, '')}/set/${encodeURIComponent(redisKey)}`;
-        const fbRes = await fetch(fetchUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${kvToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: recordJson
+      if (!kvRes.ok) {
+        const text = await kvRes.text();
+        return res.status(500).json({
+          ok: false,
+          isConfigured: true,
+          error: `Upstash HTTP ${kvRes.status}: ${text}`
         });
-        const fbData = await fbRes.json();
-        if (fbData.error) throw new Error(fbData.error);
-        setSuccess = true;
+      }
+
+      const data = await kvRes.json();
+      if (data.error) {
+        return res.status(500).json({
+          ok: false,
+          isConfigured: true,
+          error: `Redis Error: ${data.error}`
+        });
       }
 
       return res.status(200).json({
@@ -177,7 +155,7 @@ export default async function handler(req, res) {
         isConfigured: true,
         syncCode,
         updatedAt: record.updatedAt,
-        success: setSuccess
+        status: data.result || 'OK'
       });
     } catch (err) {
       return res.status(500).json({

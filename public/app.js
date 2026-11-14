@@ -132,7 +132,6 @@ function awardXp(amount, reason) {
   state.xp += amount;
   saveState();
   renderScholarRank();
-  triggerAutoSync();
   if (reason) {
     showToast(`+${amount} XP — ${reason}`);
   }
@@ -417,7 +416,6 @@ function collectCurrentOutline() {
   };
   state.outlinesByPrompt[prompt.id] = data;
   saveState();
-  triggerAutoSync();
   return data;
 }
 
@@ -758,7 +756,6 @@ function persistCurrentDraft() {
     body: document.getElementById('essay-draft-textarea').value
   };
   saveState();
-  triggerAutoSync();
 }
 
 function updateLiveTelemetry() {
@@ -1393,6 +1390,25 @@ function formatTimeAgo(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
+function describeLocalProgress() {
+  const prompt = getActivePrompt();
+  const draft = state.draftsByPrompt[prompt.id]?.body || '';
+  const wordCount = (draft.match(/\b[a-zA-Z'-]+\b/g) || []).length;
+  const outline = state.outlinesByPrompt[prompt.id] || {};
+  const outlineCount = Object.values(outline).filter(v => typeof v === 'string' && v.trim().length > 0).length;
+  return `${wordCount} words, ${outlineCount} outline items`;
+}
+
+function ensureActiveSyncCode() {
+  const codeInput = document.getElementById('sync-code-input');
+  const entered = (codeInput?.value || '').trim();
+  if (entered.length >= 4) {
+    state.syncCode = entered.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
+    saveState();
+  }
+  return state.syncCode;
+}
+
 function updateSyncUI() {
   const dot = document.getElementById('cloud-sync-dot');
   const label = document.getElementById('cloud-sync-label');
@@ -1404,7 +1420,8 @@ function updateSyncUI() {
   const disconnectBtn = document.getElementById('disconnect-sync-btn');
   const connectBtn = document.getElementById('connect-sync-btn');
 
-  const hasCode = Boolean(state.syncCode);
+  const currentCode = ensureActiveSyncCode();
+  const hasCode = Boolean(currentCode);
 
   if (dot) {
     dot.classList.toggle('connected', hasCode);
@@ -1414,7 +1431,7 @@ function updateSyncUI() {
     if (state.isSyncing) {
       label.textContent = 'Syncing...';
     } else if (hasCode) {
-      label.textContent = `Sync: ${state.syncCode}`;
+      label.textContent = `Sync: ${currentCode}`;
     } else {
       label.textContent = '☁️ Cloud Sync';
     }
@@ -1423,7 +1440,7 @@ function updateSyncUI() {
   if (modalChip) {
     if (hasCode) {
       modalChip.className = 'status-chip success';
-      modalChip.textContent = `✓ Connected: ${state.syncCode}`;
+      modalChip.textContent = `✓ Active Code: ${currentCode}`;
     } else {
       modalChip.className = 'status-chip';
       modalChip.textContent = '○ Not Connected';
@@ -1432,14 +1449,14 @@ function updateSyncUI() {
 
   if (modalDetail) {
     if (hasCode) {
-      modalDetail.textContent = `Continuous sync active. Last synced: ${formatTimeAgo(state.lastSyncedAt)}. Use code "${state.syncCode}" across your Mac, iPad, and iPhone.`;
+      modalDetail.textContent = `Manual Cloud Sync ready for "${currentCode}". Local draft: ${describeLocalProgress()}. Last synced: ${formatTimeAgo(state.lastSyncedAt)}.`;
     } else {
-      modalDetail.textContent = 'Enter a sync code below to enable automatic continuous cloud sync across your devices.';
+      modalDetail.textContent = 'Enter your family sync code below, then click "Push to Cloud" (to upload) or "Pull from Cloud" (to download).';
     }
   }
 
   if (codeInput && !codeInput.matches(':focus')) {
-    codeInput.value = state.syncCode || '';
+    codeInput.value = currentCode || '';
   }
 
   if (pushBtn) pushBtn.disabled = !hasCode || state.isSyncing;
@@ -1447,12 +1464,16 @@ function updateSyncUI() {
   if (disconnectBtn) disconnectBtn.disabled = !hasCode || state.isSyncing;
   if (connectBtn) {
     connectBtn.disabled = state.isSyncing;
-    connectBtn.textContent = hasCode ? 'Update Sync Code' : 'Connect & Sync Now';
+    connectBtn.textContent = hasCode ? 'Save Code' : 'Set Sync Code';
   }
 }
 
 async function pushToCloud({ silent = false } = {}) {
-  if (!state.syncCode) return false;
+  const activeCode = ensureActiveSyncCode();
+  if (!activeCode) {
+    if (!silent) showToast('Please enter a sync code (e.g. ALEX-2026) first.');
+    return false;
+  }
   state.isSyncing = true;
   updateSyncUI();
 
@@ -1462,7 +1483,7 @@ async function pushToCloud({ silent = false } = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        syncCode: state.syncCode,
+        syncCode: activeCode,
         updatedAt: Date.now(),
         payload
       })
@@ -1474,7 +1495,7 @@ async function pushToCloud({ silent = false } = {}) {
       saveState();
       updateSyncUI();
       if (!silent) {
-        showToast(`☁️ Cloud saved! (${state.syncCode})`);
+        showToast(`☁️ Cloud saved! [${activeCode}] (${describeLocalProgress()})`);
       }
       return true;
     } else if (data.isConfigured === false) {
@@ -1505,12 +1526,16 @@ async function pushToCloud({ silent = false } = {}) {
 }
 
 async function pullFromCloud({ silent = false } = {}) {
-  if (!state.syncCode) return false;
+  const activeCode = ensureActiveSyncCode();
+  if (!activeCode) {
+    if (!silent) showToast('Please enter a sync code (e.g. ALEX-2026) first.');
+    return false;
+  }
   state.isSyncing = true;
   updateSyncUI();
 
   try {
-    const res = await fetch(`/api/sync?syncCode=${encodeURIComponent(state.syncCode)}`);
+    const res = await fetch(`/api/sync?syncCode=${encodeURIComponent(activeCode)}`);
     const data = await res.json().catch(() => ({}));
     if (data.ok) {
       if (data.found && data.payload) {
@@ -1519,20 +1544,12 @@ async function pullFromCloud({ silent = false } = {}) {
         saveState();
         updateSyncUI();
         if (!silent) {
-          showToast(`☁️ Restored latest progress for ${state.syncCode}!`);
+          showToast(`☁️ Pulled from cloud! [${activeCode}] (${describeLocalProgress()})`);
         }
         return true;
       } else {
-        // No record in cloud yet: only push if this device actually has non-empty content to seed
-        if (hasLocalContent()) {
-          await pushToCloud({ silent: true });
-          if (!silent) {
-            showToast(`☁️ Initialized cloud space for ${state.syncCode} with your current essay!`);
-          }
-        } else {
-          if (!silent) {
-            showToast(`ℹ️ No cloud draft found for "${state.syncCode}". Click "Push to Cloud" on your other device first.`);
-          }
+        if (!silent) {
+          showToast(`ℹ️ No draft found in cloud for code "${activeCode}". Please check code or click "Push to Cloud" on your other device first.`);
         }
         return false;
       }
@@ -1563,13 +1580,8 @@ async function pullFromCloud({ silent = false } = {}) {
   }
 }
 
-function triggerAutoSync(delayMs = 2500) {
-  if (!state.syncCode) return;
-  clearTimeout(state.autoSyncTimer);
-  state.autoSyncTimer = setTimeout(() => {
-    pushToCloud({ silent: true }).catch(() => {});
-  }, delayMs);
-}
+// Background auto-sync intentionally disabled per user preference — manual sync only
+function triggerAutoSync() {}
 
 // Initialize all event listeners
 function initApp() {
@@ -1854,31 +1866,35 @@ function initApp() {
     closeSyncFooterBtn.addEventListener('click', () => cloudSyncDialog.close());
   }
 
+  if (syncCodeInput) {
+    syncCodeInput.addEventListener('input', () => {
+      ensureActiveSyncCode();
+      updateSyncUI();
+    });
+  }
+
   if (generateSyncCodeBtn && syncCodeInput) {
     generateSyncCodeBtn.addEventListener('click', () => {
       const prefixes = ['ALEX', 'QUEST', 'WRITER', 'SCHOLAR', 'ESSAY', 'LEO'];
       const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
       const randNum = Math.floor(1000 + Math.random() * 9000);
       syncCodeInput.value = `${prefix}-${randNum}`;
+      ensureActiveSyncCode();
+      updateSyncUI();
+      showToast(`Generated code: ${state.syncCode}`);
     });
   }
 
   if (cloudSyncForm) {
     cloudSyncForm.addEventListener('submit', async e => {
       e.preventDefault();
-      const raw = syncCodeInput?.value || '';
-      const clean = raw.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 32);
-      if (!clean || clean.length < 4) {
+      const code = ensureActiveSyncCode();
+      if (!code || code.length < 4) {
         showToast('Please enter a valid sync code (at least 4 characters).');
         return;
       }
-      state.syncCode = clean;
-      saveState();
       updateSyncUI();
-      const pulled = await pullFromCloud({ silent: false });
-      if (!pulled && hasLocalContent()) {
-        await pushToCloud({ silent: false });
-      }
+      showToast(`Sync code set to "${code}". Click "Push to Cloud" or "Pull from Cloud" to sync manually.`);
     });
   }
 
@@ -1896,17 +1912,15 @@ function initApp() {
         state.syncCode = '';
         state.lastSyncedAt = 0;
         saveState();
+        if (syncCodeInput) syncCodeInput.value = '';
         updateSyncUI();
         showToast('Cloud sync disconnected.');
       }
     });
   }
 
-  // Initial Sync UI state & automatic cloud pull on app launch if code is already stored
+  // Initial Sync UI state (manual sync only — no background auto-pull)
   updateSyncUI();
-  if (state.syncCode) {
-    pullFromCloud({ silent: true }).catch(() => {});
-  }
 }
 
 initApp();
