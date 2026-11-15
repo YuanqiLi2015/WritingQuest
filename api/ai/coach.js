@@ -38,14 +38,16 @@ Return JSON with this exact structure:
   "suggestedAngles": ["string", "string", "string"]
 }`;
   } else if (body.mode === 'outline-review') {
+    let outlineFormatted = '';
+    if (Array.isArray(body.outline)) {
+      outlineFormatted = body.outline
+        .map((s, idx) => `${idx + 1}. ${s.title || 'Section'}: ${s.content ? s.content : '(empty)'}`)
+        .join('\n');
+    } else if (body.outline && typeof body.outline === 'object') {
+      outlineFormatted = `Hook: ${body.outline?.hook || '(empty)'}\nThesis: ${body.outline?.thesis || '(empty)'}\nBody 1: ${body.outline?.body1 || '(empty)'}\nBody 2: ${body.outline?.body2 || '(empty)'}\nBody 3: ${body.outline?.body3 || '(empty)'}\nCounterargument/Turn: ${body.outline?.counter || '(empty)'}\nConclusion: ${body.outline?.conclusion || '(empty)'}`;
+    }
     userPrompt = `Review this Grade ${grade} student's essay outline for the prompt "${body.promptTitle}":
-Hook: ${body.outline?.hook || '(empty)'}
-Thesis: ${body.outline?.thesis || '(empty)'}
-Body 1: ${body.outline?.body1 || '(empty)'}
-Body 2: ${body.outline?.body2 || '(empty)'}
-Body 3: ${body.outline?.body3 || '(empty)'}
-Counterargument/Turn: ${body.outline?.counter || '(empty)'}
-Conclusion: ${body.outline?.conclusion || '(empty)'}
+${outlineFormatted}
 
 Return JSON with this exact structure:
 {

@@ -365,43 +365,226 @@ function selectPrompt(promptId, { notify = false } = {}) {
 }
 
 // STAGE 2: Socratic Brainstorm & Outline Studio
+function getDefaultOutlineSections(genre) {
+  return [
+    {
+      id: 'hook',
+      title: 'Opening Hook & Context (Engage reader & background context)',
+      content: '',
+      placeholder: 'Draft a vivid image, paradoxical question, or historical snapshot...'
+    },
+    {
+      id: 'thesis',
+      title: 'Working Thesis Statement / Central Claim (Core argument + line of reasoning)',
+      content: '',
+      placeholder: 'Although..., ultimately [claim] because [mechanistic reason]...'
+    },
+    {
+      id: 'body1',
+      title: 'Body Paragraph 1: First Pillar (Topic Sentence + Evidence + Analysis)',
+      content: '',
+      placeholder: 'Claim 1 + concrete example/quote + how it proves your thesis...'
+    },
+    {
+      id: 'body2',
+      title: 'Body Paragraph 2: Second Pillar (Topic Sentence + Evidence + Analysis)',
+      content: '',
+      placeholder: 'Claim 2 + concrete example/quote + deeper implication...'
+    },
+    {
+      id: 'body3',
+      title: 'Body Paragraph 3 / Synthesis (Optional Third Point or Deeper Exploration)',
+      content: '',
+      placeholder: 'Additional evidence, cross-text connection, or systemic impact...'
+    },
+    {
+      id: 'counter',
+      title: 'Counterargument, Concession & Turn (Opposing viewpoint & pivot)',
+      content: '',
+      placeholder: 'What valid point does the other side have, and how does your reasoning outweigh or refine it?'
+    },
+    {
+      id: 'conclusion',
+      title: 'Conclusion & "So What?" Takeaway (Synthesis & enduring insight)',
+      content: '',
+      placeholder: 'Synthesize your insights without merely repeating your introduction word-for-word...'
+    }
+  ];
+}
+
+function normalizeOutline(saved, genre) {
+  if (Array.isArray(saved) && saved.length > 0) {
+    return saved.map((sec, idx) => ({
+      id: sec.id || `section-${Date.now()}-${idx}`,
+      title: typeof sec.title === 'string' && sec.title.trim() ? sec.title : `Section ${idx + 1}`,
+      content: typeof sec.content === 'string' ? sec.content : '',
+      placeholder: sec.placeholder || 'Draft your notes, claims, evidence, or ideas here...'
+    }));
+  }
+
+  // Handle legacy object format { hook, thesis, body1, body2, body3, counter, conclusion }
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+    const defaults = getDefaultOutlineSections(genre);
+    const hasAnyContent = Object.values(saved).some(v => typeof v === 'string' && v.trim().length > 0);
+    if (hasAnyContent) {
+      return defaults.map(sec => ({
+        ...sec,
+        content: typeof saved[sec.id] === 'string' ? saved[sec.id] : ''
+      }));
+    }
+  }
+
+  return getDefaultOutlineSections(genre);
+}
+
+function extractThesisFromOutline(outline) {
+  if (!outline) return '';
+  if (typeof outline.thesis === 'string') return outline.thesis;
+  if (Array.isArray(outline)) {
+    const byId = outline.find(s => s.id === 'thesis');
+    if (byId && byId.content) return byId.content;
+    const byTitle = outline.find(s => /thesis|claim/i.test(s.title));
+    if (byTitle && byTitle.content) return byTitle.content;
+    if (outline.length > 1 && outline[1].content) return outline[1].content;
+    if (outline[0] && outline[0].content) return outline[0].content;
+  }
+  return '';
+}
+
+function renderOutlineSectionsList() {
+  const container = document.getElementById('outline-fields-container');
+  if (!container) return;
+  const prompt = getActivePrompt();
+  const sections = normalizeOutline(state.outlinesByPrompt[prompt.id], prompt.genre);
+  state.outlinesByPrompt[prompt.id] = sections;
+
+  container.innerHTML = '';
+  sections.forEach((sec, index) => {
+    const card = document.createElement('div');
+    card.className = 'outline-section-card';
+    card.dataset.id = sec.id;
+    card.dataset.index = index;
+
+    card.innerHTML = `
+      <div class="outline-section-header">
+        <div class="outline-section-title-wrap">
+          <span class="outline-section-badge">#${index + 1}</span>
+          <input type="text" class="outline-section-title-input" value="${escapeHtml(sec.title)}" placeholder="Section Title (e.g. Body Paragraph 1)" aria-label="Section ${index + 1} Title">
+        </div>
+        <div class="outline-card-tools">
+          <button type="button" class="btn-icon-sm move-up-btn" title="Move Up" ${index === 0 ? 'disabled' : ''} aria-label="Move Section Up">↑</button>
+          <button type="button" class="btn-icon-sm move-down-btn" title="Move Down" ${index === sections.length - 1 ? 'disabled' : ''} aria-label="Move Section Down">↓</button>
+          <button type="button" class="btn-icon-sm delete-section-btn" title="Delete Section" aria-label="Delete Section">🗑️</button>
+        </div>
+      </div>
+      <textarea class="auto-textarea outline-section-textarea" placeholder="${escapeHtml(sec.placeholder || 'Draft your notes, claims, evidence, or ideas here...')}">${escapeHtml(sec.content || '')}</textarea>
+    `;
+
+    const titleInput = card.querySelector('.outline-section-title-input');
+    const textarea = card.querySelector('.outline-section-textarea');
+    const moveUpBtn = card.querySelector('.move-up-btn');
+    const moveDownBtn = card.querySelector('.move-down-btn');
+    const deleteBtn = card.querySelector('.delete-section-btn');
+
+    titleInput.addEventListener('input', () => {
+      sec.title = titleInput.value;
+      saveState();
+    });
+
+    textarea.addEventListener('input', () => {
+      sec.content = textarea.value;
+      saveState();
+    });
+
+    moveUpBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (index > 0) {
+        collectCurrentOutline();
+        const curSections = state.outlinesByPrompt[prompt.id];
+        const temp = curSections[index - 1];
+        curSections[index - 1] = curSections[index];
+        curSections[index] = temp;
+        saveState();
+        renderOutlineSectionsList();
+      }
+    });
+
+    moveDownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (index < sections.length - 1) {
+        collectCurrentOutline();
+        const curSections = state.outlinesByPrompt[prompt.id];
+        const temp = curSections[index + 1];
+        curSections[index + 1] = curSections[index];
+        curSections[index] = temp;
+        saveState();
+        renderOutlineSectionsList();
+      }
+    });
+
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      collectCurrentOutline();
+      const curSections = state.outlinesByPrompt[prompt.id];
+      const targetSec = curSections[index];
+      if (targetSec && targetSec.content && targetSec.content.trim().length > 0) {
+        const ok = confirm(`Delete "${targetSec.title || 'this section'}"? Its notes will be removed.`);
+        if (!ok) return;
+      }
+      curSections.splice(index, 1);
+      if (curSections.length === 0) {
+        curSections.push({
+          id: `sec-${Date.now()}`,
+          title: 'Section 1',
+          content: '',
+          placeholder: 'Draft your notes, claims, evidence, or ideas here...'
+        });
+      }
+      saveState();
+      renderOutlineSectionsList();
+    });
+
+    container.appendChild(card);
+  });
+}
+
 function renderOutlineStudio() {
   const prompt = getActivePrompt();
   document.getElementById('outline-prompt-title').textContent = `Grade ${state.currentGrade} • ${prompt.genre}: ${prompt.title}`;
-
-  const savedOutline = state.outlinesByPrompt[prompt.id] || {
-    hook: '',
-    thesis: '',
-    body1: '',
-    body2: '',
-    body3: '',
-    counter: '',
-    conclusion: ''
-  };
-
-  document.getElementById('outline-hook').value = savedOutline.hook || '';
-  document.getElementById('outline-thesis').value = savedOutline.thesis || '';
-  document.getElementById('outline-body1').value = savedOutline.body1 || '';
-  document.getElementById('outline-body2').value = savedOutline.body2 || '';
-  document.getElementById('outline-body3').value = savedOutline.body3 || '';
-  document.getElementById('outline-counter').value = savedOutline.counter || '';
-  document.getElementById('outline-conclusion').value = savedOutline.conclusion || '';
+  renderOutlineSectionsList();
 }
 
 function collectCurrentOutline() {
   const prompt = getActivePrompt();
-  const data = {
-    hook: document.getElementById('outline-hook').value.trim(),
-    thesis: document.getElementById('outline-thesis').value.trim(),
-    body1: document.getElementById('outline-body1').value.trim(),
-    body2: document.getElementById('outline-body2').value.trim(),
-    body3: document.getElementById('outline-body3').value.trim(),
-    counter: document.getElementById('outline-counter').value.trim(),
-    conclusion: document.getElementById('outline-conclusion').value.trim()
-  };
-  state.outlinesByPrompt[prompt.id] = data;
+  const container = document.getElementById('outline-fields-container');
+  if (!container) {
+    return normalizeOutline(state.outlinesByPrompt[prompt.id], prompt.genre);
+  }
+
+  const cards = container.querySelectorAll('.outline-section-card');
+  if (cards.length === 0) {
+    return normalizeOutline(state.outlinesByPrompt[prompt.id], prompt.genre);
+  }
+
+  const sections = [];
+  cards.forEach((card, index) => {
+    const id = card.dataset.id || `sec-${Date.now()}-${index}`;
+    const titleInput = card.querySelector('.outline-section-title-input');
+    const textarea = card.querySelector('.outline-section-textarea');
+    const title = titleInput ? titleInput.value.trim() : `Section ${index + 1}`;
+    const content = textarea ? textarea.value.trim() : '';
+    const placeholder = textarea ? textarea.placeholder : '';
+    sections.push({
+      id,
+      title: title || `Section ${index + 1}`,
+      content,
+      placeholder
+    });
+  });
+
+  state.outlinesByPrompt[prompt.id] = sections;
   saveState();
-  return data;
+  return sections;
 }
 
 function buildClientCoachFallback({ mode, grade, promptTitle, outline }) {
@@ -429,7 +612,8 @@ function buildClientCoachFallback({ mode, grade, promptTitle, outline }) {
     };
   }
   if (mode === 'outline-review') {
-    const hasThesis = Boolean(outline?.thesis && outline.thesis.trim().length > 15);
+    const thesis = extractThesisFromOutline(outline);
+    const hasThesis = Boolean(thesis && thesis.trim().length > 15);
     return {
       source: 'local-coach',
       overallVerdict: hasThesis
@@ -444,7 +628,7 @@ function buildClientCoachFallback({ mode, grade, promptTitle, outline }) {
         `Address the strongest opposing viewpoint fairly before showing why your reasoning outweighs it.`
       ],
       polishedThesisSuggestion: hasThesis
-        ? `Refined Grade ${g} Pattern: "Although some argue otherwise, ${outline.thesis.replace(/\.$/, '')} because it fundamentally shapes how individuals think, act, and grow."`
+        ? `Refined Grade ${g} Pattern: "Although some argue otherwise, ${thesis.replace(/\.$/, '')} because it fundamentally shapes how individuals think, act, and grow."`
         : `Draft a working thesis statement above to see a tailored refinement!`
     };
   }
@@ -762,17 +946,17 @@ function renderEditorStudio() {
   });
 
   // Outline reference preview
-  const outline = state.outlinesByPrompt[prompt.id];
+  const rawOutline = state.outlinesByPrompt[prompt.id];
+  const outlineSections = normalizeOutline(rawOutline, prompt.genre);
+  const nonEmptySections = outlineSections.filter(s => s.content && s.content.trim().length > 0);
   const previewEl = document.getElementById('editor-outline-preview');
-  if (outline && Object.values(outline).some(Boolean)) {
+  if (nonEmptySections.length > 0) {
     previewEl.innerHTML = `
       <dl class="outline-preview-list">
-        ${outline.hook ? `<dt><strong>Hook:</strong></dt><dd>${escapeHtml(outline.hook)}</dd>` : ''}
-        ${outline.thesis ? `<dt><strong>Thesis:</strong></dt><dd>${escapeHtml(outline.thesis)}</dd>` : ''}
-        ${outline.body1 ? `<dt><strong>Body 1:</strong></dt><dd>${escapeHtml(outline.body1)}</dd>` : ''}
-        ${outline.body2 ? `<dt><strong>Body 2:</strong></dt><dd>${escapeHtml(outline.body2)}</dd>` : ''}
-        ${outline.counter ? `<dt><strong>Counter/Turn:</strong></dt><dd>${escapeHtml(outline.counter)}</dd>` : ''}
-        ${outline.conclusion ? `<dt><strong>Conclusion:</strong></dt><dd>${escapeHtml(outline.conclusion)}</dd>` : ''}
+        ${nonEmptySections.map(s => `
+          <dt><strong>${escapeHtml(s.title)}:</strong></dt>
+          <dd>${escapeHtml(s.content)}</dd>
+        `).join('')}
       </dl>
     `;
   } else {
@@ -1365,9 +1549,13 @@ function getSyncPayload() {
 }
 
 function hasLocalContent() {
-  const hasOutlines = Object.values(state.outlinesByPrompt || {}).some(
-    o => o && Object.values(o).some(v => typeof v === 'string' && v.trim().length > 0)
-  );
+  const hasOutlines = Object.values(state.outlinesByPrompt || {}).some(o => {
+    if (!o) return false;
+    if (Array.isArray(o)) {
+      return o.some(s => s && typeof s.content === 'string' && s.content.trim().length > 0);
+    }
+    return Object.values(o).some(v => typeof v === 'string' && v.trim().length > 0);
+  });
   const hasDrafts = Object.values(state.draftsByPrompt || {}).some(
     d => d && typeof d.body === 'string' && d.body.trim().length > 0
   );
@@ -1468,8 +1656,13 @@ function describeLocalProgress() {
   const prompt = getActivePrompt();
   const draft = state.draftsByPrompt[prompt.id]?.body || '';
   const wordCount = (draft.match(/\b[a-zA-Z'-]+\b/g) || []).length;
-  const outline = state.outlinesByPrompt[prompt.id] || {};
-  const outlineCount = Object.values(outline).filter(v => typeof v === 'string' && v.trim().length > 0).length;
+  const rawOutline = state.outlinesByPrompt[prompt.id];
+  let outlineCount = 0;
+  if (Array.isArray(rawOutline)) {
+    outlineCount = rawOutline.filter(s => s && typeof s.content === 'string' && s.content.trim().length > 0).length;
+  } else if (rawOutline && typeof rawOutline === 'object') {
+    outlineCount = Object.values(rawOutline).filter(v => typeof v === 'string' && v.trim().length > 0).length;
+  }
   return `${wordCount} words, ${outlineCount} outline items`;
 }
 
@@ -1701,32 +1894,63 @@ function initApp() {
   document.getElementById('review-outline-btn').addEventListener('click', handleReviewOutline);
   document.getElementById('outline-form').addEventListener('input', collectCurrentOutline);
 
-  const outlineForm = document.getElementById('outline-form');
-  if (outlineForm) {
-    const outlineFields = outlineForm.querySelectorAll('.form-field');
-    outlineFields.forEach(field => {
-      field.addEventListener('click', e => {
-        const textarea = field.querySelector('textarea');
-        if (textarea && e.target !== textarea) {
-          textarea.focus();
-        }
+  const addSectionBtn = document.getElementById('add-outline-section-btn');
+  if (addSectionBtn) {
+    addSectionBtn.addEventListener('click', () => {
+      collectCurrentOutline();
+      const prompt = getActivePrompt();
+      const sections = state.outlinesByPrompt[prompt.id] || [];
+      const newIndex = sections.length + 1;
+      sections.push({
+        id: `sec-${Date.now()}-${newIndex}`,
+        title: `Section ${newIndex}`,
+        content: '',
+        placeholder: 'Draft your notes, claims, evidence, or ideas here...'
       });
+      state.outlinesByPrompt[prompt.id] = sections;
+      saveState();
+      renderOutlineSectionsList();
+
+      const container = document.getElementById('outline-fields-container');
+      const lastCard = container ? container.lastElementChild : null;
+      if (lastCard) {
+        const titleInput = lastCard.querySelector('.outline-section-title-input');
+        if (titleInput) {
+          titleInput.focus();
+          titleInput.select();
+        }
+      }
+    });
+  }
+
+  const resetOutlineBtn = document.getElementById('reset-outline-btn');
+  if (resetOutlineBtn) {
+    resetOutlineBtn.addEventListener('click', () => {
+      const prompt = getActivePrompt();
+      const current = state.outlinesByPrompt[prompt.id];
+      const hasContent = Array.isArray(current)
+        ? current.some(s => s && s.content && s.content.trim().length > 0)
+        : current && Object.values(current).some(v => typeof v === 'string' && v.trim().length > 0);
+
+      if (hasContent) {
+        const ok = confirm('Reset outline to standard structure? Any customized sections and drafted notes will be replaced.');
+        if (!ok) return;
+      }
+
+      state.outlinesByPrompt[prompt.id] = getDefaultOutlineSections(prompt.genre);
+      saveState();
+      renderOutlineSectionsList();
+      showToast('Outline reset to standard structure.');
     });
   }
 
   document.getElementById('send-outline-to-editor-btn').addEventListener('click', () => {
-    const outline = collectCurrentOutline();
+    const sections = collectCurrentOutline();
     const prompt = getActivePrompt();
 
-    const intro = [outline.hook, outline.thesis].filter(Boolean).join(' ');
-    const paragraphs = [
-      intro,
-      outline.body1,
-      outline.body2,
-      outline.body3,
-      outline.counter,
-      outline.conclusion
-    ].filter(p => typeof p === 'string' && p.trim().length > 0);
+    const paragraphs = (Array.isArray(sections) ? sections : Object.values(sections))
+      .map(s => (typeof s === 'string' ? s : s?.content || '').trim())
+      .filter(p => p.length > 0);
 
     const scaffold = paragraphs.join('\n\n');
 

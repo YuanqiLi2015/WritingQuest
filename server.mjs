@@ -244,25 +244,38 @@ function buildLocalCoachResponse({ mode, grade, promptTitle, promptText, outline
   }
 
   if (mode === 'outline-review') {
-    const hasThesis = Boolean(outline?.thesis && outline.thesis.trim().length > 15);
-    const bodyCount = [outline?.body1, outline?.body2, outline?.body3].filter(b => b && b.trim().length > 10).length;
+    let thesis = '';
+    let bodyCount = 0;
+    let counter = '';
+    if (Array.isArray(outline)) {
+      const thesisSec = outline.find(s => s.id === 'thesis' || /thesis|claim/i.test(s.title)) || outline[1];
+      thesis = thesisSec?.content?.trim() || '';
+      bodyCount = outline.filter(s => s !== thesisSec && s.content && s.content.trim().length > 10).length;
+      const counterSec = outline.find(s => s.id === 'counter' || /counter|concession|opposing/i.test(s.title));
+      counter = counterSec?.content?.trim() || '';
+    } else {
+      thesis = outline?.thesis?.trim() || '';
+      bodyCount = [outline?.body1, outline?.body2, outline?.body3].filter(b => b && b.trim().length > 10).length;
+      counter = outline?.counter?.trim() || '';
+    }
+    const hasThesis = Boolean(thesis && thesis.length > 15);
     return {
       source: 'local-coach',
       overallVerdict: hasThesis && bodyCount >= 2
         ? `Strong structural foundation for Grade ${g}! Your thesis sets a clear direction and your body points establish a logical progression.`
         : `Good start for Grade ${g}! Let's sharpen your central thesis and make sure each body paragraph has both specific evidence and analytical reasoning.`,
       thesisFeedback: hasThesis
-        ? `Your working thesis ("${outline.thesis.slice(0, 90)}...") states a position. To elevate it for Grade ${g}, ensure it answers "HOW" or "WHY" (the line of reasoning) rather than just stating a topic.`
+        ? `Your working thesis ("${thesis.slice(0, 90)}...") states a position. To elevate it for Grade ${g}, ensure it answers "HOW" or "WHY" (the line of reasoning) rather than just stating a topic.`
         : `Your outline needs a clear, debatable thesis statement. Try combining a concession ("Although...") with your core claim and primary reason.`,
       paragraphSuggestions: [
         `Hook & Opening: Make sure your hook connects directly to the core tension of your thesis within 2–3 sentences.`,
-        `Body Paragraphs (${bodyCount}/3 drafted): For each body paragraph, pair one concrete example with 2–3 sentences of analysis explaining *why* that evidence proves your thesis.`,
+        `Body Paragraphs (${bodyCount} drafted): For each body paragraph, pair one concrete example with 2–3 sentences of analysis explaining *why* that evidence proves your thesis.`,
         g >= 9
           ? `Counterargument / Nuance: Don't just dismiss the opposing view—concede where it has partial validity, then show why your argument outweighs it.`
           : `Counterargument / Reflection: Acknowledge one objection a reader might have and explain how your evidence answers it.`
       ],
       polishedThesisSuggestion: hasThesis
-        ? `Refined Grade ${g} Pattern: "Although ${outline.counter ? outline.counter.slice(0, 50) : 'some argue otherwise'}, ${outline.thesis.replace(/\.$/, '')} because it fundamentally shapes how individuals think, act, and grow."`
+        ? `Refined Grade ${g} Pattern: "Although ${counter ? counter.slice(0, 50) : 'some argue otherwise'}, ${thesis.replace(/\.$/, '')} because it fundamentally shapes how individuals think, act, and grow."`
         : `Draft a working thesis first so I can help you refine its syntax and precision!`
     };
   }
@@ -768,14 +781,16 @@ Return JSON with this exact structure:
   "suggestedAngles": ["string", "string", "string"]
 }`;
       } else if (body.mode === 'outline-review') {
+        let outlineFormatted = '';
+        if (Array.isArray(body.outline)) {
+          outlineFormatted = body.outline
+            .map((s, idx) => `${idx + 1}. ${s.title || 'Section'}: ${s.content ? s.content : '(empty)'}`)
+            .join('\n');
+        } else if (body.outline && typeof body.outline === 'object') {
+          outlineFormatted = `Hook: ${body.outline?.hook || '(empty)'}\nThesis: ${body.outline?.thesis || '(empty)'}\nBody 1: ${body.outline?.body1 || '(empty)'}\nBody 2: ${body.outline?.body2 || '(empty)'}\nBody 3: ${body.outline?.body3 || '(empty)'}\nCounterargument/Turn: ${body.outline?.counter || '(empty)'}\nConclusion: ${body.outline?.conclusion || '(empty)'}`;
+        }
         userPrompt = `Review this Grade ${grade} student's essay outline for the prompt "${body.promptTitle}":
-Hook: ${body.outline?.hook || '(empty)'}
-Thesis: ${body.outline?.thesis || '(empty)'}
-Body 1: ${body.outline?.body1 || '(empty)'}
-Body 2: ${body.outline?.body2 || '(empty)'}
-Body 3: ${body.outline?.body3 || '(empty)'}
-Counterargument/Turn: ${body.outline?.counter || '(empty)'}
-Conclusion: ${body.outline?.conclusion || '(empty)'}
+${outlineFormatted}
 
 Return JSON with this exact structure:
 {

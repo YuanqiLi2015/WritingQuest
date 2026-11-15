@@ -811,7 +811,13 @@
   .outline-form {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: 1rem;
+  }
+
+  .outline-fields-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
   }
 
   .form-field {
@@ -825,26 +831,157 @@
     font-weight: 600;
   }
 
-  .outline-form .form-field {
-    gap: 0.5rem;
+  .outline-section-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
     padding: 1rem 1.15rem;
-    border-radius: 0.8rem;
+    border-radius: 0.85rem;
     border: 2px solid var(--border-subtle);
     background-color: var(--bg-surface);
-    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    cursor: text;
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
   }
 
-  .outline-form .form-field:hover {
-    border-color: color-mix(in srgb, var(--brand-primary) 40%, var(--border-subtle));
+  .outline-section-card:hover {
+    border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--border-subtle));
   }
 
-  .outline-form .form-field:focus-within,
-  .outline-form .form-field:has(:focus),
-  .outline-form .form-field.selected {
+  .outline-section-card:focus-within {
     background-color: var(--brand-soft);
     border-color: var(--brand-primary);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 18%, transparent);
+  }
+
+  .outline-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .outline-section-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .outline-section-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--brand-primary);
+    background-color: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .outline-section-title-input {
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.55rem;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+    min-width: 0;
+  }
+
+  .outline-section-title-input:hover {
+    border-color: var(--border-subtle);
+    background-color: color-mix(in srgb, var(--bg-subtle, #f1f5f9) 60%, transparent);
+  }
+
+  .outline-section-title-input:focus {
+    border-color: var(--brand-primary);
+    background-color: var(--bg-surface);
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-primary) 20%, transparent);
+  }
+
+  .outline-card-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .btn-icon-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    font-size: 0.92rem;
+    border-radius: 0.45rem;
+    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-surface);
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .btn-icon-sm:hover:not(:disabled) {
+    color: var(--brand-primary);
+    border-color: var(--brand-primary);
+    background-color: var(--brand-soft);
+  }
+
+  .btn-icon-sm.delete-section-btn:hover:not(:disabled) {
+    color: var(--accent-rose, #e11d48);
+    border-color: color-mix(in srgb, var(--accent-rose, #e11d48) 50%, var(--border-subtle));
+    background-color: color-mix(in srgb, var(--accent-rose, #e11d48) 12%, transparent);
+  }
+
+  .btn-icon-sm:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .outline-section-textarea {
+    width: 100%;
+    min-height: 4.5rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.55rem;
+    background-color: var(--bg-surface);
+    color: var(--text-main);
+    resize: vertical;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+  }
+
+  .outline-section-card:focus-within .outline-section-textarea {
+    border-color: var(--brand-primary);
+    background-color: var(--bg-surface);
+  }
+
+  .outline-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-block-start: 0.25rem;
+    padding-block-start: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .outline-actions-bar #add-outline-section-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
   }
 
   .outline-field-header {

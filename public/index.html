@@ -205,53 +205,17 @@
           </div>
 
           <form id="outline-form" class="outline-form">
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-hook">1. Opening Hook &amp; Context (How will you draw the reader in?)</label>
-              </div>
-              <textarea id="outline-hook" class="auto-textarea" placeholder="Draft a vivid image, paradoxical question, or historical snapshot..."></textarea>
+            <div id="outline-fields-container" class="outline-fields-container">
+              <!-- Dynamically populated customizable outline sections -->
             </div>
 
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-thesis">2. Working Thesis Statement / Central Claim (Your core argument + line of reasoning)</label>
-              </div>
-              <textarea id="outline-thesis" class="auto-textarea" placeholder="Although..., ultimately [claim] because [mechanistic reason]..."></textarea>
-            </div>
-
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-body1">3. Body Paragraph 1: First Pillar (Topic Sentence + Specific Evidence + Analysis)</label>
-              </div>
-              <textarea id="outline-body1" class="auto-textarea" placeholder="Claim 1 + concrete example/quote + how it proves your thesis..."></textarea>
-            </div>
-
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-body2">4. Body Paragraph 2: Second Pillar (Topic Sentence + Specific Evidence + Analysis)</label>
-              </div>
-              <textarea id="outline-body2" class="auto-textarea" placeholder="Claim 2 + concrete example/quote + deeper implication..."></textarea>
-            </div>
-
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-body3">5. Body Paragraph 3 / Synthesis (Optional Third Point or Deeper Exploration)</label>
-              </div>
-              <textarea id="outline-body3" class="auto-textarea" placeholder="Additional evidence, cross-text connection, or systemic impact..."></textarea>
-            </div>
-
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-counter">6. Counterargument, Concession &amp; Turn / Reflective Pivot</label>
-              </div>
-              <textarea id="outline-counter" class="auto-textarea" placeholder="What valid point does the other side have, and how does your reasoning outweigh or refine it?"></textarea>
-            </div>
-
-            <div class="form-field">
-              <div class="outline-field-header">
-                <label for="outline-conclusion">7. Conclusion &amp; "So What?" Takeaway (Why does this matter in the larger picture?)</label>
-              </div>
-              <textarea id="outline-conclusion" class="auto-textarea" placeholder="Synthesize your insights without merely repeating your introduction word-for-word..."></textarea>
+            <div class="outline-actions-bar">
+              <button type="button" class="btn secondary" id="add-outline-section-btn">
+                <span>➕</span> Add Section / Paragraph
+              </button>
+              <button type="button" class="btn ghost small" id="reset-outline-btn" title="Reset outline to standard recommended structure">
+                ↺ Reset to Standard Structure
+              </button>
             </div>
           </form>
         </div>
