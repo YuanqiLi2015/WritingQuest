@@ -200,9 +200,28 @@ export function buildLocalCoachResponse({ mode, grade, promptTitle, outline }) {
   };
 }
 
+export function sanitizeRepetitions(text) {
+  if (!text) return text;
+  let prev;
+  let res = text;
+  let loops = 0;
+  do {
+    prev = res;
+    loops++;
+    // Remove repeated transitional words with commas (e.g. "Specifically, specifically,", "Ultimately, ultimately,")
+    res = res.replace(/\b([A-Za-z]+),\s+\1,\s*/gi, (m, word) => `${word}, `);
+    // Remove duplicate adjacent word followed by comma (e.g. "Specifically, specifically have")
+    res = res.replace(/\b([A-Za-z]+),\s+\1\b/gi, (m, word) => `${word}`);
+    // Remove duplicated em-dash or hyphen phrases (e.g. "—a realization that reshapes...—a realization that reshapes...")
+    res = res.replace(/(—\s*[^—]+?)\s*\1+/g, '$1');
+  } while (res !== prev && loops < 5);
+  return res;
+}
+
 export function buildLocalEssayEvaluation({ grade, promptTitle, essayText }) {
   const g = Number(grade) || 8;
-  const text = (essayText || '').trim();
+  const rawText = (essayText || '').trim();
+  const text = sanitizeRepetitions(rawText);
   const words = text.match(/\b[a-zA-Z'-]+\b/g) || [];
   const wordCount = words.length;
   const paragraphs = text.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
@@ -241,25 +260,71 @@ export function buildLocalEssayEvaluation({ grade, promptTitle, essayText }) {
     totalScore >= 25 ? 'B-' : 'C+';
 
   const lineEdits = [];
-  if (sentences.length > 0) {
-    const first = sentences[0];
-    lineEdits.push({
-      original: first,
-      revised: g >= 9
-        ? `While conventional perspectives often overlook this nuance, ${first.charAt(0).toLowerCase() + first.slice(1)}`
-        : `Specifically, ${first.charAt(0).toLowerCase() + first.slice(1)}`,
-      category: 'Sentence Variety & Flow',
-      explanation: `Adding a subordinate clause or transitional opener creates smoother rhythm and signals how this sentence advances your line of reasoning.`
-    });
+  const handledSentences = new Set();
+
+  // 1. Detect accidental duplicate words or repeated clauses (e.g., "Specifically, specifically" or repeated em-dash phrases)
+  const rawSentences = rawText.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 3);
+  for (const s of rawSentences) {
+    const cleaned = sanitizeRepetitions(s);
+    if (cleaned !== s) {
+      lineEdits.push({
+        original: s,
+        revised: cleaned,
+        category: 'Diction & Redundancy',
+        explanation: 'Remove accidental duplicate transition words or repeated clauses to ensure clean, precise, and academically formal syntax.'
+      });
+      handledSentences.add(s);
+      handledSentences.add(cleaned);
+      if (lineEdits.length >= 3) break;
+    }
   }
-  if (sentences.length > 2) {
-    const last = sentences[sentences.length - 1];
-    lineEdits.push({
-      original: last,
-      revised: `Ultimately, ${last.charAt(0).toLowerCase() + last.slice(1).replace(/\.$/, '')}—a realization that reshapes how we understand ${promptTitle ? promptTitle.toLowerCase() : 'this issue'}.`,
-      category: 'Conclusion & Resonance',
-      explanation: `A strong Grade ${g} conclusion zooms out from your immediate argument to leave the reader with a lasting thematic or societal insight.`
+
+  // 2. Sentence Variety & Flow: only suggest if sentence lacks transition and is not a rhetorical question
+  const transitionOpenerRegex = /^(specifically|ultimately|moreover|furthermore|however|consequently|therefore|for instance|for example|in addition|while|although|meanwhile|first|second|finally|as a result|by|when|if|after|before)\b/i;
+
+  if (lineEdits.length < 2) {
+    const candidate = sentences.find((s, idx) => {
+      if (handledSentences.has(s)) return false;
+      if (s.endsWith('?')) return false; // Avoid prepending transitions to rhetorical questions
+      if (transitionOpenerRegex.test(s)) return false; // Already has a transition!
+      if (idx === sentences.length - 1 && sentences.length > 1) return false;
+      return s.length >= 20 && s.length <= 120;
     });
+
+    if (candidate) {
+      const opener = g >= 9 ? 'In particular, ' : 'For instance, ';
+      const revised = `${opener}${candidate.charAt(0).toLowerCase() + candidate.slice(1)}`;
+      if (revised !== candidate && !candidate.toLowerCase().startsWith(opener.toLowerCase().trim())) {
+        lineEdits.push({
+          original: candidate,
+          revised,
+          category: 'Sentence Variety & Flow',
+          explanation: 'Adding a transitional opener connects this sentence smoothly to your ongoing line of reasoning.'
+        });
+        handledSentences.add(candidate);
+      }
+    }
+  }
+
+  // 3. Conclusion & Resonance: only if the last sentence does NOT already have a conclusion transition or em-dash realization
+  if (lineEdits.length < 3 && sentences.length > 2) {
+    const lastSent = sentences[sentences.length - 1];
+    if (!handledSentences.has(lastSent)) {
+      const hasConclusionWord = /^(ultimately|in conclusion|finally|overall|to conclude)\b/i.test(lastSent);
+      const hasEmDashOrResonance = /[—–-]{1,2}|\b(realization|reshapes|underscores|transforms|proves)\b/i.test(lastSent);
+
+      if (!hasConclusionWord && !hasEmDashOrResonance) {
+        const cleanBase = lastSent.replace(/\.$/, '');
+        const revised = `Ultimately, ${cleanBase.charAt(0).toLowerCase() + cleanBase.slice(1)}—a critical step toward achieving lasting positive impact.`;
+        lineEdits.push({
+          original: lastSent,
+          revised,
+          category: 'Conclusion & Resonance',
+          explanation: `A strong Grade ${g} conclusion zooms out from your immediate argument to leave the reader with a lasting thematic or societal insight.`
+        });
+        handledSentences.add(lastSent);
+      }
+    }
   }
 
   const vocabUpgrades = g <= 8
